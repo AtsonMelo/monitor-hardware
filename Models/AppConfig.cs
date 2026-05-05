@@ -8,4 +8,6 @@ public class AppConfig
     public bool EnableConsole { get; set; } = true;
     public string Mode { get; set; } = "resumo";
     public string CpuFanSensorName { get; set; } = "Fan #2";
+    public string TemperatureUnit { get; set; } = "C";
+    public bool ShowTemperatureUnitInTrayIcon { get; set; } = false;
 }

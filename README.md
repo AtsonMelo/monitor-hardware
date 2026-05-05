@@ -106,7 +106,9 @@ O arquivo `config.json` permite ajustar limites de alerta e intervalo de atualiz
   "EnableCsv": true,
   "EnableConsole": true,
   "Mode": "resumo",
-  "CpuFanSensorName": "Fan #2"
+  "CpuFanSensorName": "Fan #2",
+  "TemperatureUnit": "C",
+  "ShowTemperatureUnitInTrayIcon": false
 }
 ```
 
@@ -119,7 +121,9 @@ Campos:
 - `EnableCsv`: ativa ou desativa a gravação automática de CSV;
 - `EnableConsole`: ativa ou desativa a exibição do resumo no console;
 - `Mode`: modo de execução configurado. Modos suportados: `resumo`, `detalhado` e `somente-log`;
-- `CpuFanSensorName`: nome do sensor usado como fan da CPU.
+- `CpuFanSensorName`: nome do sensor usado como fan da CPU;
+- `TemperatureUnit`: unidade usada na exibição da bandeja. Use `C` para Celsius ou `F` para Fahrenheit;
+- `ShowTemperatureUnitInTrayIcon`: quando `true`, mostra a unidade no ícone da bandeja, como `40°C`. Quando `false`, mostra só `40°` para deixar a fonte maior.
 
 ## Hardware testado
 
