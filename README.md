@@ -1,200 +1,157 @@
-\# Monitor Hardware
+# Monitor Hardware
 
-
-
-Monitor de hardware em C# para Windows, usando a biblioteca `LibreHardwareMonitorLib`.
-
-
+Monitor de hardware em C#/.NET 8 para Windows, usando a biblioteca `LibreHardwareMonitorLib`.
 
 O projeto lê sensores reais do computador, como temperatura da CPU, uso da CPU, potência, clock, temperatura da GPU, temperatura do SSD, uso de memória RAM, velocidade de fan e informações de rede.
 
-
-
-\## Objetivo
-
-
+## Objetivo
 
 Este projeto foi criado como estudo prático de:
 
+- monitoramento de hardware no Windows;
+- leitura de sensores via C#;
+- uso da biblioteca `LibreHardwareMonitorLib`;
+- organização de projeto .NET;
+- versionamento com Git e GitHub;
+- testes automatizados básicos.
 
+## Como executar
 
-\- Monitoramento de hardware no Windows
+Para rodar o monitor em modo normal:
 
-\- Leitura de sensores via C#
+```powershell
+dotnet run
+```
 
-\- Uso da biblioteca LibreHardwareMonitorLib
+O monitor exibe um resumo no console, atualiza os dados em intervalo configurável e grava automaticamente um log CSV.
 
-\- Organização de projeto .NET
+## Modo diagnóstico
 
-\- Versionamento com Git e GitHub
+O projeto possui um modo de diagnóstico para listar todos os sensores físicos detectados pela biblioteca `LibreHardwareMonitorLib`.
 
+Para executar:
 
+```powershell
+dotnet run -- --diagnostico
+```
 
-\## Hardware testado
+Esse modo:
 
+- lê os sensores reais da máquina uma única vez;
+- mostra o nome do hardware;
+- mostra o tipo do hardware;
+- mostra o nome do sensor;
+- mostra o tipo do sensor;
+- mostra o valor atual;
+- não entra no loop principal do monitor;
+- não grava arquivo CSV.
 
+Ele é útil para descobrir quais sensores estão disponíveis no computador antes de ajustar a lógica de leitura do monitor.
+
+## Configuração
+
+O arquivo `config.json` permite ajustar limites de alerta e intervalo de atualização:
+
+```json
+{
+  "CpuTempMax": 80,
+  "GpuTempMax": 80,
+  "SsdTempMax": 60,
+  "IntervaloMs": 2000
+}
+```
+
+Campos:
+
+- `CpuTempMax`: temperatura máxima esperada para CPU, em graus Celsius;
+- `GpuTempMax`: temperatura máxima esperada para GPU, em graus Celsius;
+- `SsdTempMax`: temperatura máxima esperada para SSD, em graus Celsius;
+- `IntervaloMs`: intervalo entre leituras, em milissegundos.
+
+## Hardware testado
 
 O projeto foi testado em um PC com:
 
+- Placa-mãe: Biostar H510MH 2.0;
+- CPU: Intel Core i3-10100F;
+- GPU: Radeon RX 470 Series;
+- Armazenamento: SSD 512 GB;
+- Sistema: Windows 11 Insider Preview.
 
-
-\- Placa-mãe: Biostar H510MH 2.0
-
-\- CPU: Intel Core i3-10100F
-
-\- GPU: Radeon RX 470 Series
-
-\- Armazenamento: SSD 512 GB
-
-\- Sistema: Windows 11 Insider Preview
-
-
-
-\## Sensores lidos
-
-
+## Sensores lidos
 
 Atualmente o app consegue exibir:
 
+### CPU
 
+- Temperatura do pacote da CPU;
+- temperatura máxima dos núcleos;
+- uso total da CPU;
+- potência do pacote da CPU;
+- clock dos núcleos;
+- tensão dos núcleos.
 
-\### CPU
+### Placa-mãe
 
+- Sensores do chip ITE IT8613E;
+- temperaturas da placa;
+- tensões;
+- velocidade de fan.
 
+### GPU
 
-\- Temperatura do pacote da CPU
+- Temperatura da GPU;
+- uso da GPU;
+- potência da GPU;
+- clock do núcleo;
+- clock da memória;
+- fan da GPU.
 
-\- Temperatura máxima dos núcleos
+### SSD
 
-\- Uso total da CPU
+- Temperatura;
+- vida útil;
+- espaço usado;
+- atividade de leitura/escrita.
 
-\- Potência do pacote da CPU
+### Memória RAM
 
-\- Clock dos núcleos
+- Uso total;
+- memória usada;
+- memória disponível.
 
-\- Tensão dos núcleos
+### Rede
 
+- Velocidade de upload;
+- velocidade de download;
+- utilização da rede.
 
-
-\### Placa-mãe
-
-
-
-\- Sensores do chip ITE IT8613E
-
-\- Temperaturas da placa
-
-\- Tensões
-
-\- Velocidade de fan
-
-
-
-\### GPU
-
-
-
-\- Temperatura da GPU
-
-\- Uso da GPU
-
-\- Potência da GPU
-
-\- Clock do núcleo
-
-\- Clock da memória
-
-\- Fan da GPU
-
-
-
-\### SSD
-
-
-
-\- Temperatura
-
-\- Vida útil
-
-\- Espaço usado
-
-\- Atividade de leitura/escrita
-
-
-
-\### Memória RAM
-
-
-
-\- Uso total
-
-\- Memória usada
-
-\- Memória disponível
-
-
-
-\### Rede
-
-
-
-\- Velocidade de upload
-
-\- Velocidade de download
-
-\- Utilização da rede
-
-
-
-\## Exemplo de saída
-
-
+## Exemplo de saída
 
 ```text
-
 === Monitor de Hardware - Resumo ===
-
 Atualizado em: 04/05/2026 22:30:00
 
-
-
 CPU
-
-&#x20; Temperatura Package : 42,0 °C
-
-&#x20; Temperatura Core Max: 42,0 °C
-
-&#x20; Uso total           : 7,8 %
-
-&#x20; Potência Package    : 7,0 W
-
-&#x20; Clock Core #1       : 4100 MHz
-
-&#x20; Fan provável CPU    : 1603 RPM
-
-
+  Temperatura Package : 42,0 °C
+  Temperatura Core Max: 42,0 °C
+  Uso total           : 7,8 %
+  Potência Package    : 7,0 W
+  Clock Core #1       : 4100 MHz
+  Fan provável CPU    : 1603 RPM
 
 GPU - Radeon RX 470
-
-&#x20; Temperatura : 55,0 °C
-
-&#x20; Uso         : 0,0 %
-
-&#x20; Potência    : 24,0 W
-
-
+  Temperatura : 55,0 °C
+  Uso         : 0,0 %
+  Potência    : 24,0 W
 
 SSD
-
-&#x20; Temperatura : 40,0 °C
-
-&#x20; Vida útil   : 100,0 %
-
-
+  Temperatura : 40,0 °C
+  Vida útil   : 100,0 %
 
 Alertas
-
-&#x20; Nenhum alerta crítico.
+  Nenhum alerta crítico.
+```
 
 ## Log CSV automático
 
@@ -204,3 +161,12 @@ O arquivo segue o padrão:
 
 ```text
 logs/monitor-hardware-YYYYMMDD.csv
+```
+
+## Testes
+
+Para rodar os testes automatizados:
+
+```powershell
+dotnet test
+```
