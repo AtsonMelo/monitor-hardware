@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -14,9 +14,13 @@ class Program
         Console.WriteLine("Monitor de Hardware - versão resumida com CSV");
         Console.WriteLine("Pressione Ctrl + C para sair.");
 
-        HardwareMonitorService hardwareMonitor = new HardwareMonitorService();
-        ConsoleDisplayService consoleDisplay = new ConsoleDisplayService();
+        ConfigService configService = new ConfigService();
+        AppConfig config = configService.Load();
 
+        HardwareMonitorService hardwareMonitor = new HardwareMonitorService();
+        ConsoleDisplayService consoleDisplay = new ConsoleDisplayService(config);
+        CsvLoggerService csvLogger = new CsvLoggerService();
+ 
         while (true)
         {
             List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
@@ -26,13 +30,15 @@ class Program
             Console.WriteLine("=== Monitor de Hardware - Resumo ===");
             Console.WriteLine($"Atualizado em: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
             Console.WriteLine();
+
             consoleDisplay.Show(sensors);
 
-            GravarCsv(snapshot);
+            csvLogger.Save(snapshot);
 
-            Thread.Sleep(2000);
+            Thread.Sleep(config.IntervaloMs);
         }
     }
+
     static MonitorSnapshot CriarSnapshot(List<SensorReading> sensors)
     {
         float? cpuFan = sensors
@@ -65,34 +71,6 @@ class Program
         };
     }
 
-    static void GravarCsv(MonitorSnapshot snapshot)
-    {
-        Directory.CreateDirectory("logs");
-
-        string filePath = Path.Combine("logs", $"monitor-hardware-{DateTime.Now:yyyyMMdd}.csv");
-        bool novoArquivo = !File.Exists(filePath);
-
-        using StreamWriter writer = new StreamWriter(filePath, append: true, Encoding.UTF8);
-
-        if (novoArquivo)
-        {
-            writer.WriteLine("DataHora,CPU_Temp_C,CPU_Uso_Percent,CPU_Power_W,CPU_Fan_RPM,GPU_Temp_C,GPU_Uso_Percent,GPU_Power_W,SSD_Temp_C,RAM_Uso_Percent");
-        }
-
-        writer.WriteLine(string.Join(",",
-            snapshot.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
-            Csv(snapshot.CpuTemp),
-            Csv(snapshot.CpuUso),
-            Csv(snapshot.CpuPower),
-            Csv(snapshot.CpuFan),
-            Csv(snapshot.GpuTemp),
-            Csv(snapshot.GpuUso),
-            Csv(snapshot.GpuPower),
-            Csv(snapshot.SsdTemp),
-            Csv(snapshot.RamUso)
-        ));
-    }
-
     static string Csv(float? value)
     {
         return value.HasValue
@@ -100,5 +78,4 @@ class Program
             : "";
     }
 }
-
 
