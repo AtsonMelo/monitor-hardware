@@ -10,12 +10,20 @@ class TrayIconService : IDisposable
     {
         ContextMenuStrip menu = new ContextMenuStrip();
 
+        ToolStripMenuItem openReportItem = new ToolStripMenuItem("Abrir relatório HTML");
+        openReportItem.Click += (_, _) => OpenReport();
+
         ToolStripMenuItem openLogsItem = new ToolStripMenuItem("Abrir pasta de logs");
         openLogsItem.Click += (_, _) => OpenFolder("logs");
 
         ToolStripMenuItem exitItem = new ToolStripMenuItem("Sair");
-        exitItem.Click += (_, _) => Application.Exit();
+        exitItem.Click += (_, _) =>
+        {
+            Hide();
+            Application.Exit();
+        };
 
+        menu.Items.Add(openReportItem);
         menu.Items.Add(openLogsItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(exitItem);
@@ -62,10 +70,38 @@ class TrayIconService : IDisposable
             : "--%";
     }
 
-    public void Dispose()
+    private void Hide()
     {
         _notifyIcon.Visible = false;
+    }
+
+    public void Dispose()
+    {
+        Hide();
         _notifyIcon.Dispose();
+    }
+
+    private static void OpenReport()
+    {
+        try
+        {
+            HtmlReportService htmlReportService = new HtmlReportService();
+            string reportPath = htmlReportService.GenerateHistoricalReport();
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = Path.GetFullPath(reportPath),
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Não foi possível abrir o relatório: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
     }
 
     private static void OpenFolder(string folderPath)
