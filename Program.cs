@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -14,22 +14,11 @@ class Program
         Console.WriteLine("Monitor de Hardware - versão resumida com CSV");
         Console.WriteLine("Pressione Ctrl + C para sair.");
 
-        Computer computer = new Computer
-        {
-            IsCpuEnabled = true,
-            IsGpuEnabled = true,
-            IsMotherboardEnabled = true,
-            IsStorageEnabled = true,
-            IsMemoryEnabled = true,
-            IsControllerEnabled = true,
-            IsNetworkEnabled = true
-        };
-
-        computer.Open();
+        HardwareMonitorService hardwareMonitor = new HardwareMonitorService();
 
         while (true)
         {
-            List<SensorReading> sensors = ReadAllSensors(computer);
+            List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
             MonitorSnapshot snapshot = CriarSnapshot(sensors);
 
             Console.Clear();
@@ -50,60 +39,6 @@ class Program
         }
     }
 
-    static List<SensorReading> ReadAllSensors(Computer computer)
-    {
-        List<SensorReading> sensors = new();
-
-        foreach (IHardware hardware in computer.Hardware)
-        {
-            ReadHardwareRecursive(hardware, sensors);
-        }
-
-        return sensors;
-    }
-
-    static void ReadHardwareRecursive(IHardware hardware, List<SensorReading> sensors)
-    {
-        hardware.Update();
-
-        foreach (ISensor sensor in hardware.Sensors)
-        {
-            sensors.Add(new SensorReading
-            {
-                HardwareName = hardware.Name,
-                HardwareType = hardware.HardwareType,
-                SensorName = sensor.Name,
-                SensorType = sensor.SensorType,
-                Value = sensor.Value
-            });
-        }
-
-        foreach (IHardware subHardware in hardware.SubHardware)
-        {
-            ReadHardwareRecursive(subHardware, sensors);
-        }
-    }
-
-    static float? GetSensor(List<SensorReading> sensors, HardwareType hardwareType, SensorType sensorType, string sensorName)
-    {
-        return sensors
-            .FirstOrDefault(s =>
-                s.HardwareType == hardwareType &&
-                s.SensorType == sensorType &&
-                s.SensorName.Equals(sensorName, StringComparison.OrdinalIgnoreCase))
-            ?.Value;
-    }
-
-    static float? GetFirstSensor(List<SensorReading> sensors, SensorType sensorType, string sensorNameContains)
-    {
-        return sensors
-            .FirstOrDefault(s =>
-                s.SensorType == sensorType &&
-                s.SensorName.Contains(sensorNameContains, StringComparison.OrdinalIgnoreCase) &&
-                s.Value != null)
-            ?.Value;
-    }
-
     static string F(float? value, string unit = "")
     {
         return value == null ? "--" : $"{value:F1}{unit}";
@@ -111,11 +46,11 @@ class Program
 
     static void MostrarCpu(List<SensorReading> sensors)
     {
-        float? cpuTemp = GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package");
-        float? cpuCoreMax = GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "Core Max");
-        float? cpuUso = GetSensor(sensors, HardwareType.Cpu, SensorType.Load, "CPU Total");
-        float? cpuPower = GetSensor(sensors, HardwareType.Cpu, SensorType.Power, "CPU Package");
-        float? cpuClock = GetSensor(sensors, HardwareType.Cpu, SensorType.Clock, "CPU Core #1");
+        float? cpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package");
+        float? cpuCoreMax = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "Core Max");
+        float? cpuUso = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Load, "CPU Total");
+        float? cpuPower = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Power, "CPU Package");
+        float? cpuClock = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Clock, "CPU Core #1");
 
         float? cpuFan = sensors
             .Where(s => s.SensorType == SensorType.Fan && s.Value != null && s.Value > 0)
@@ -135,12 +70,12 @@ class Program
 
     static void MostrarGpu(List<SensorReading> sensors)
     {
-        float? gpuTemp = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core");
-        float? gpuUso = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Load, "GPU Core");
-        float? gpuPower = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Power, "GPU Package");
-        float? gpuClock = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Clock, "GPU Core");
-        float? gpuMemClock = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Clock, "GPU Memory");
-        float? gpuFan = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Fan, "GPU Fan");
+        float? gpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core");
+        float? gpuUso = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Load, "GPU Core");
+        float? gpuPower = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Power, "GPU Package");
+        float? gpuClock = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Clock, "GPU Core");
+        float? gpuMemClock = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Clock, "GPU Memory");
+        float? gpuFan = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Fan, "GPU Fan");
 
         Console.WriteLine("GPU - Radeon RX 470");
         Console.WriteLine($"  Temperatura : {F(gpuTemp, " °C")}");
@@ -154,10 +89,10 @@ class Program
 
     static void MostrarSsd(List<SensorReading> sensors)
     {
-        float? ssdTemp = GetSensor(sensors, HardwareType.Storage, SensorType.Temperature, "Temperature");
-        float? ssdVida = GetSensor(sensors, HardwareType.Storage, SensorType.Level, "Life");
-        float? ssdUso = GetSensor(sensors, HardwareType.Storage, SensorType.Load, "Used Space");
-        float? ssdAtividade = GetSensor(sensors, HardwareType.Storage, SensorType.Load, "Total Activity");
+        float? ssdTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Temperature, "Temperature");
+        float? ssdVida = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Level, "Life");
+        float? ssdUso = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Load, "Used Space");
+        float? ssdAtividade = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Load, "Total Activity");
 
         Console.WriteLine("SSD");
         Console.WriteLine($"  Temperatura : {F(ssdTemp, " °C")}");
@@ -199,8 +134,8 @@ class Program
 
     static void MostrarRede(List<SensorReading> sensors)
     {
-        float? down = GetFirstSensor(sensors, SensorType.Throughput, "Download Speed");
-        float? up = GetFirstSensor(sensors, SensorType.Throughput, "Upload Speed");
+        float? down = HardwareMonitorService.GetFirstSensor(sensors, SensorType.Throughput, "Download Speed");
+        float? up = HardwareMonitorService.GetFirstSensor(sensors, SensorType.Throughput, "Upload Speed");
 
         Console.WriteLine("Rede");
         Console.WriteLine($"  Download: {F(down)} B/s");
@@ -210,9 +145,9 @@ class Program
 
     static void MostrarAlertas(List<SensorReading> sensors)
     {
-        float? cpuTemp = GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package");
-        float? gpuTemp = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core");
-        float? ssdTemp = GetSensor(sensors, HardwareType.Storage, SensorType.Temperature, "Temperature");
+        float? cpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package");
+        float? gpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core");
+        float? ssdTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Temperature, "Temperature");
 
         Console.WriteLine("Alertas");
 
@@ -256,16 +191,16 @@ class Program
         {
             Timestamp = DateTime.Now,
 
-            CpuTemp = GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package"),
-            CpuUso = GetSensor(sensors, HardwareType.Cpu, SensorType.Load, "CPU Total"),
-            CpuPower = GetSensor(sensors, HardwareType.Cpu, SensorType.Power, "CPU Package"),
+            CpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package"),
+            CpuUso = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Load, "CPU Total"),
+            CpuPower = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Power, "CPU Package"),
             CpuFan = cpuFan,
 
-            GpuTemp = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core"),
-            GpuUso = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Load, "GPU Core"),
-            GpuPower = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Power, "GPU Package"),
+            GpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core"),
+            GpuUso = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Load, "GPU Core"),
+            GpuPower = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Power, "GPU Package"),
 
-            SsdTemp = GetSensor(sensors, HardwareType.Storage, SensorType.Temperature, "Temperature"),
+            SsdTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Temperature, "Temperature"),
 
             RamUso = sensors
                 .FirstOrDefault(s =>
@@ -311,3 +246,4 @@ class Program
             : "";
     }
 }
+
