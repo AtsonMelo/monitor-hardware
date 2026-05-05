@@ -6,5 +6,7 @@
   "EnableCsv": true,
   "EnableConsole": true,
   "Mode": "resumo",
-  "CpuFanSensorName": "Fan #2"
+  "CpuFanSensorName": "Fan #2",
+  "TemperatureUnit": "C",
+  "ShowTemperatureUnitInTrayIcon": false
 }

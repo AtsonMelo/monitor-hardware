@@ -29,7 +29,7 @@ class Program
             SnapshotService traySnapshotService = new SnapshotService(trayConfig);
 
             using CancellationTokenSource trayCancellationTokenSource = new CancellationTokenSource();
-            using TrayIconService trayIconService = new TrayIconService();
+            using TrayIconService trayIconService = new TrayIconService(trayConfig);
 
             Application.ApplicationExit += (_, _) => trayCancellationTokenSource.Cancel();
 

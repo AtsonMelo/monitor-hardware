@@ -25,6 +25,8 @@ public class ConfigServiceTests
             Assert.True(config.EnableConsole);
             Assert.Equal("resumo", config.Mode);
             Assert.Equal("Fan #2", config.CpuFanSensorName);
+            Assert.Equal("C", config.TemperatureUnit);
+            Assert.False(config.ShowTemperatureUnitInTrayIcon);
         }
         finally
         {
@@ -49,7 +51,9 @@ public class ConfigServiceTests
                 EnableCsv = false,
                 EnableConsole = true,
                 Mode = "resumo",
-                CpuFanSensorName = "Fan #3"
+                CpuFanSensorName = "Fan #3",
+                TemperatureUnit = "F",
+                ShowTemperatureUnitInTrayIcon = true
             };
 
             string json = JsonSerializer.Serialize(customConfig);
@@ -67,6 +71,8 @@ public class ConfigServiceTests
             Assert.True(config.EnableConsole);
             Assert.Equal("resumo", config.Mode);
             Assert.Equal("Fan #3", config.CpuFanSensorName);
+            Assert.Equal("F", config.TemperatureUnit);
+            Assert.True(config.ShowTemperatureUnitInTrayIcon);
         }
         finally
         {
