@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.log
+*.bak
+Program.backup-*.cs
+Program.backup-*.cs.bak
