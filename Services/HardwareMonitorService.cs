@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using LibreHardwareMonitor.Hardware;
 
-class HardwareMonitorService
+public class HardwareMonitorService
 {
     private readonly Computer _computer;
 
