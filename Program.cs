@@ -9,7 +9,7 @@ using LibreHardwareMonitor.Hardware;
 
 class Program
 {
-    static void Main()
+    static void Main(string[] args)
     {
         Console.WriteLine("Monitor de Hardware - versão resumida com CSV");
         Console.WriteLine("Pressione Ctrl + C para sair.");
@@ -21,7 +21,17 @@ class Program
         ConsoleDisplayService consoleDisplay = new ConsoleDisplayService(config);
         CsvLoggerService csvLogger = new CsvLoggerService();
         SnapshotService snapshotService = new SnapshotService();
- 
+
+        if (args.Contains("--diagnostico"))
+        {
+            List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
+
+            DiagnosticDisplayService diagnosticDisplay = new DiagnosticDisplayService();
+            diagnosticDisplay.Show(sensors);
+
+            return;
+        }
+
         while (true)
         {
             List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
