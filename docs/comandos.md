@@ -68,6 +68,14 @@ Rodar somente gravando CSV:
 dotnet run -- --mode somente-log
 ```
 
+Rodar com ícone na bandeja do Windows:
+
+```powershell
+dotnet run -- --tray
+```
+
+O tooltip do ícone mostra CPU/GPU/RAM em tempo real.
+
 Parar o monitor em modo normal:
 
 ```text

@@ -13,17 +13,42 @@ class Program
     {
         Console.WriteLine("Monitor de Hardware");
         if (args.Contains("--tray"))
-{
-    ApplicationConfiguration.Initialize();
+        {
+            ApplicationConfiguration.Initialize();
 
-    using TrayIconService trayIconService = new TrayIconService();
+            ConfigService trayConfigService = new ConfigService();
+            AppConfig trayConfig = trayConfigService.Load();
 
-    Console.WriteLine("Ícone iniciado na bandeja. Use o menu do ícone para sair.");
+            if (trayConfig.IntervaloMs <= 0)
+            {
+                Console.WriteLine("IntervaloMs deve ser maior que zero no config.json.");
+                return;
+            }
 
-    Application.Run();
+            HardwareMonitorService trayHardwareMonitor = new HardwareMonitorService();
+            SnapshotService traySnapshotService = new SnapshotService(trayConfig);
 
-    return;
-}
+            using CancellationTokenSource trayCancellationTokenSource = new CancellationTokenSource();
+            using TrayIconService trayIconService = new TrayIconService();
+
+            Application.ApplicationExit += (_, _) => trayCancellationTokenSource.Cancel();
+
+            Task trayMonitorTask = RunTrayMonitorAsync(
+                trayConfig,
+                trayHardwareMonitor,
+                traySnapshotService,
+                trayIconService,
+                trayCancellationTokenSource.Token);
+
+            Console.WriteLine("Ícone iniciado na bandeja. Use o menu do ícone para sair.");
+
+            Application.Run();
+
+            await trayMonitorTask;
+
+            return;
+        }
+
 
 
         if (args.Contains("--relatorio"))
@@ -94,6 +119,7 @@ class Program
         SnapshotService snapshotService = new SnapshotService(config);
 
         using CancellationTokenSource cancellationTokenSource = CreateCancellationTokenSource();
+
         await RunMonitorAsync(
             config,
             mode,
@@ -107,6 +133,37 @@ class Program
             cancellationTokenSource.Token);
     }
 
+    private static async Task RunTrayMonitorAsync(
+        AppConfig config,
+        HardwareMonitorService hardwareMonitor,
+        SnapshotService snapshotService,
+        TrayIconService trayIconService,
+        CancellationToken cancellationToken)
+    {
+        using PeriodicTimer timer = new PeriodicTimer(TimeSpan.FromMilliseconds(config.IntervaloMs));
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
+            MonitorSnapshot snapshot = snapshotService.Create(sensors);
+
+            trayIconService.UpdateTooltip(snapshot);
+
+            try
+            {
+                bool shouldContinue = await timer.WaitForNextTickAsync(cancellationToken);
+
+                if (!shouldContinue)
+                {
+                    break;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
     private static async Task RunMonitorAsync(
         AppConfig config,
         string mode,
