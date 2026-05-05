@@ -1,17 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using LibreHardwareMonitor.Hardware;
 
 class Program
 {
     static void Main(string[] args)
     {
-        Console.WriteLine("Monitor de Hardware - versão resumida com CSV");
+        Console.WriteLine("Monitor de Hardware");
 
         if (args.Contains("--relatorio"))
         {
@@ -35,38 +31,42 @@ class Program
             HardwareMonitorService diagnosticHardwareMonitor = new HardwareMonitorService();
             List<SensorReading> sensors = diagnosticHardwareMonitor.ReadAllSensors();
 
-            DiagnosticDisplayService diagnosticDisplay = new DiagnosticDisplayService();
-            diagnosticDisplay.Show(sensors);
+            DiagnosticDisplayService diagnosticDisplayOnce = new DiagnosticDisplayService();
+            diagnosticDisplayOnce.Show(sensors);
 
             return;
         }
 
         ConfigService configService = new ConfigService();
         AppConfig config = configService.Load();
+        string mode = GetMode(args, config);
 
-        if (!config.Mode.Equals("resumo", StringComparison.OrdinalIgnoreCase))
+        if (!IsSupportedMode(mode))
         {
-            Console.WriteLine($"Modo '{config.Mode}' ainda não é suportado. Use Mode = \"resumo\" no config.json.");
+            Console.WriteLine(string.IsNullOrWhiteSpace(mode)
+                ? "Modo não informado."
+                : $"Modo '{mode}' não é suportado.");
+            Console.WriteLine("Use: resumo, detalhado ou somente-log.");
             return;
         }
 
-        if (!config.EnableConsole && !config.EnableCsv)
+        bool enableCsv = ShouldEnableCsv(mode, config);
+        bool enableConsole = ShouldEnableConsole(mode, config);
+
+        if (!enableConsole && !enableCsv)
         {
             Console.WriteLine("EnableConsole e EnableCsv estão desativados. Ative pelo menos uma saída no config.json.");
             return;
         }
 
-        if (config.EnableConsole)
-        {
-            Console.WriteLine("Pressione Ctrl + C para sair.");
-        }
-        else
-        {
-            Console.WriteLine("Console desativado; gravando CSV em logs/. Pressione Ctrl + C para sair.");
-        }
+        Console.WriteLine($"Modo de execução: {mode}");
+        Console.WriteLine(enableConsole
+            ? "Pressione Ctrl + C para sair."
+            : "Console desativado; gravando CSV em logs/. Pressione Ctrl + C para sair.");
 
         HardwareMonitorService hardwareMonitor = new HardwareMonitorService();
         ConsoleDisplayService consoleDisplay = new ConsoleDisplayService(config);
+        DiagnosticDisplayService detailedDisplay = new DiagnosticDisplayService();
         CsvLoggerService csvLogger = new CsvLoggerService();
         SnapshotService snapshotService = new SnapshotService(config);
 
@@ -75,17 +75,24 @@ class Program
             List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
             MonitorSnapshot snapshot = snapshotService.Create(sensors);
 
-            if (config.EnableConsole)
+            if (enableConsole)
             {
                 Console.Clear();
-                Console.WriteLine("=== Monitor de Hardware - Resumo ===");
+                Console.WriteLine(GetTitle(mode));
                 Console.WriteLine($"Atualizado em: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
                 Console.WriteLine();
 
-                consoleDisplay.Show(sensors);
+                if (IsDetailedMode(mode))
+                {
+                    detailedDisplay.Show(sensors, "Sensores reais detectados");
+                }
+                else
+                {
+                    consoleDisplay.Show(sensors);
+                }
             }
 
-            if (config.EnableCsv)
+            if (enableCsv)
             {
                 csvLogger.Save(snapshot);
             }
@@ -94,11 +101,66 @@ class Program
         }
     }
 
-    static string Csv(float? value)
+    private static string GetMode(string[] args, AppConfig config)
     {
-        return value.HasValue
-            ? value.Value.ToString("0.0", CultureInfo.InvariantCulture)
-            : "";
+        string? modeFromEquals = args
+            .FirstOrDefault(arg => arg.StartsWith("--mode=", StringComparison.OrdinalIgnoreCase))
+            ?.Split('=', 2)[1];
+
+        if (!string.IsNullOrWhiteSpace(modeFromEquals))
+        {
+            return NormalizeMode(modeFromEquals);
+        }
+
+        int modeIndex = Array.FindIndex(args, arg => arg.Equals("--mode", StringComparison.OrdinalIgnoreCase));
+
+        if (modeIndex >= 0 && modeIndex + 1 < args.Length)
+        {
+            return NormalizeMode(args[modeIndex + 1]);
+        }
+
+        if (modeIndex >= 0)
+        {
+            return "";
+        }
+
+        return NormalizeMode(config.Mode);
+    }
+
+    private static string NormalizeMode(string mode)
+    {
+        string normalized = mode.Trim().ToLowerInvariant();
+
+        return normalized == "log"
+            ? "somente-log"
+            : normalized;
+    }
+
+    private static bool IsSupportedMode(string mode)
+    {
+        return mode is "resumo" or "detalhado" or "somente-log";
+    }
+
+    private static bool IsDetailedMode(string mode)
+    {
+        return mode.Equals("detalhado", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldEnableCsv(string mode, AppConfig config)
+    {
+        return mode.Equals("somente-log", StringComparison.OrdinalIgnoreCase) || config.EnableCsv;
+    }
+
+    private static bool ShouldEnableConsole(string mode, AppConfig config)
+    {
+        return !mode.Equals("somente-log", StringComparison.OrdinalIgnoreCase) && config.EnableConsole;
+    }
+
+    private static string GetTitle(string mode)
+    {
+        return IsDetailedMode(mode)
+            ? "=== Monitor de Hardware - Detalhado ==="
+            : "=== Monitor de Hardware - Resumo ===";
     }
 }
 

@@ -4,9 +4,9 @@ using System.Globalization;
 
 class DiagnosticDisplayService
 {
-    public void Show(List<SensorReading> sensors)
+    public void Show(List<SensorReading> sensors, string title = "Diagnóstico de Sensores")
     {
-        Console.WriteLine("=== Diagnóstico de Sensores ===");
+        Console.WriteLine($"=== {title} ===");
         Console.WriteLine($"Total de sensores detectados: {sensors.Count}");
         Console.WriteLine();
 
