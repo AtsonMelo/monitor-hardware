@@ -2,5 +2,9 @@
   "CpuTempMax": 80,
   "GpuTempMax": 80,
   "SsdTempMax": 60,
-  "IntervaloMs": 2000
+  "IntervaloMs": 2000,
+  "EnableCsv": true,
+  "EnableConsole": true,
+  "Mode": "resumo",
+  "CpuFanSensorName": "Fan #2"
 }

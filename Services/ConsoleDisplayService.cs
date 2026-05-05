@@ -4,12 +4,14 @@ using System.Linq;
 using LibreHardwareMonitor.Hardware;
 
 class ConsoleDisplayService
-{ private readonly AppConfig _config;
+{
+    private readonly AppConfig _config;
 
     public ConsoleDisplayService(AppConfig config)
     {
         _config = config;
     }
+
     public void Show(List<SensorReading> sensors)
     {
         MostrarCpu(sensors);
@@ -25,19 +27,14 @@ class ConsoleDisplayService
         return value == null ? "--" : $"{value:F1}{unit}";
     }
 
-    private static void MostrarCpu(List<SensorReading> sensors)
+    private void MostrarCpu(List<SensorReading> sensors)
     {
         float? cpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package");
         float? cpuCoreMax = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "Core Max");
         float? cpuUso = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Load, "CPU Total");
         float? cpuPower = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Power, "CPU Package");
         float? cpuClock = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Clock, "CPU Core #1");
-
-        float? cpuFan = sensors
-            .Where(s => s.SensorType == SensorType.Fan && s.Value != null && s.Value > 0)
-            .OrderByDescending(s => s.Value)
-            .FirstOrDefault()
-            ?.Value;
+        float? cpuFan = HardwareMonitorService.GetCpuFan(sensors, _config.CpuFanSensorName);
 
         Console.WriteLine("CPU");
         Console.WriteLine($"  Temperatura Package : {F(cpuTemp, " °C")}");
@@ -45,7 +42,7 @@ class ConsoleDisplayService
         Console.WriteLine($"  Uso total           : {F(cpuUso, " %")}");
         Console.WriteLine($"  Potência Package    : {F(cpuPower, " W")}");
         Console.WriteLine($"  Clock Core #1       : {F(cpuClock, " MHz")}");
-        Console.WriteLine($"  Fan provável CPU    : {F(cpuFan, " RPM")}");
+        Console.WriteLine($"  Fan CPU             : {F(cpuFan, " RPM")}");
         Console.WriteLine();
     }
 

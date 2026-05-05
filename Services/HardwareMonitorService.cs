@@ -83,4 +83,28 @@ class HardwareMonitorService
                 s.Value != null)
             ?.Value;
     }
+
+    public static float? GetCpuFan(List<SensorReading> sensors, string sensorName)
+    {
+        if (!string.IsNullOrWhiteSpace(sensorName))
+        {
+            float? configuredFan = sensors
+                .FirstOrDefault(s =>
+                    s.SensorType == SensorType.Fan &&
+                    s.SensorName.Equals(sensorName, StringComparison.OrdinalIgnoreCase) &&
+                    s.Value != null)
+                ?.Value;
+
+            if (configuredFan != null)
+            {
+                return configuredFan;
+            }
+        }
+
+        return sensors
+            .Where(s => s.SensorType == SensorType.Fan && s.Value != null && s.Value > 0)
+            .OrderByDescending(s => s.Value)
+            .FirstOrDefault()
+            ?.Value;
+    }
 }
