@@ -74,6 +74,8 @@ Parar o monitor em modo normal:
 Ctrl + C
 ```
 
+O app intercepta esse comando e encerra o loop de monitoramento de forma controlada.
+
 ## Modos do aplicativo
 
 Rodar diagnóstico de sensores reais:

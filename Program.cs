@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 class Program
 {
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
         Console.WriteLine("Monitor de Hardware");
 
@@ -59,6 +60,12 @@ class Program
             return;
         }
 
+        if (config.IntervaloMs <= 0)
+        {
+            Console.WriteLine("IntervaloMs deve ser maior que zero no config.json.");
+            return;
+        }
+
         Console.WriteLine($"Modo de execução: {mode}");
         Console.WriteLine(enableConsole
             ? "Pressione Ctrl + C para sair."
@@ -70,7 +77,35 @@ class Program
         CsvLoggerService csvLogger = new CsvLoggerService();
         SnapshotService snapshotService = new SnapshotService(config);
 
-        while (true)
+        using CancellationTokenSource cancellationTokenSource = CreateCancellationTokenSource();
+        await RunMonitorAsync(
+            config,
+            mode,
+            enableConsole,
+            enableCsv,
+            hardwareMonitor,
+            consoleDisplay,
+            detailedDisplay,
+            csvLogger,
+            snapshotService,
+            cancellationTokenSource.Token);
+    }
+
+    private static async Task RunMonitorAsync(
+        AppConfig config,
+        string mode,
+        bool enableConsole,
+        bool enableCsv,
+        HardwareMonitorService hardwareMonitor,
+        ConsoleDisplayService consoleDisplay,
+        DiagnosticDisplayService detailedDisplay,
+        CsvLoggerService csvLogger,
+        SnapshotService snapshotService,
+        CancellationToken cancellationToken)
+    {
+        using PeriodicTimer timer = new PeriodicTimer(TimeSpan.FromMilliseconds(config.IntervaloMs));
+
+        while (!cancellationToken.IsCancellationRequested)
         {
             List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
             MonitorSnapshot snapshot = snapshotService.Create(sensors);
@@ -97,8 +132,36 @@ class Program
                 csvLogger.Save(snapshot);
             }
 
-            Thread.Sleep(config.IntervaloMs);
+            try
+            {
+                bool shouldContinue = await timer.WaitForNextTickAsync(cancellationToken);
+
+                if (!shouldContinue)
+                {
+                    break;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
         }
+
+        Console.WriteLine();
+        Console.WriteLine("Monitor encerrado.");
+    }
+
+    private static CancellationTokenSource CreateCancellationTokenSource()
+    {
+        CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+
+        Console.CancelKeyPress += (_, eventArgs) =>
+        {
+            eventArgs.Cancel = true;
+            cancellationTokenSource.Cancel();
+        };
+
+        return cancellationTokenSource;
     }
 
     private static string GetMode(string[] args, AppConfig config)
