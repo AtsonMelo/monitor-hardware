@@ -196,3 +196,11 @@ Alertas
 
 &#x20; Nenhum alerta crítico.
 
+## Log CSV automático
+
+O programa gera automaticamente arquivos CSV na pasta `logs/`.
+
+O arquivo segue o padrão:
+
+```text
+logs/monitor-hardware-YYYYMMDD.csv
