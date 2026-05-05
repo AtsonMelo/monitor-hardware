@@ -38,6 +38,16 @@ dotnet run -- --mode somente-log
 - `detalhado`: mostra todos os sensores reais detectados em loop;
 - `somente-log`: grava CSV sem redesenhar o painel no console.
 
+## Modo bandeja
+
+O projeto também possui um protótipo de ícone na bandeja do Windows:
+
+```powershell
+dotnet run -- --tray
+```
+
+O ícone mostra um tooltip com CPU/GPU/RAM em tempo real e possui menu para abrir a pasta de logs ou sair do app.
+
 ## Relatório HTML
 
 O projeto pode gerar um relatório HTML consolidando todos os CSVs encontrados na pasta `logs/`.

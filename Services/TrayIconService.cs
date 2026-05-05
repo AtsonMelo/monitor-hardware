@@ -29,6 +29,39 @@ class TrayIconService : IDisposable
         };
     }
 
+    public void UpdateTooltip(MonitorSnapshot snapshot)
+    {
+        string text = string.Join(Environment.NewLine,
+            $"CPU {FormatTemperature(snapshot.CpuTemp)} | GPU {FormatTemperature(snapshot.GpuTemp)}",
+            $"CPU {FormatPercent(snapshot.CpuUso)} | GPU {FormatPercent(snapshot.GpuUso)}",
+            $"RAM {FormatRam(snapshot.RamUso)}");
+
+        _notifyIcon.Text = text.Length <= 63
+            ? text
+            : text[..63];
+    }
+
+    private static string FormatTemperature(float? value)
+    {
+        return value.HasValue
+            ? $"{value.Value:0} °C"
+            : "-- °C";
+    }
+
+    private static string FormatPercent(float? value)
+    {
+        return value.HasValue
+            ? $"{value.Value:0}%"
+            : "--%";
+    }
+
+    private static string FormatRam(float? value)
+    {
+        return value.HasValue
+            ? $"{value.Value:0}%"
+            : "--%";
+    }
+
     public void Dispose()
     {
         _notifyIcon.Visible = false;
