@@ -41,29 +41,54 @@ class Program
             return;
         }
 
-        Console.WriteLine("Pressione Ctrl + C para sair.");
-
         ConfigService configService = new ConfigService();
         AppConfig config = configService.Load();
+
+        if (!config.Mode.Equals("resumo", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine($"Modo '{config.Mode}' ainda não é suportado. Use Mode = \"resumo\" no config.json.");
+            return;
+        }
+
+        if (!config.EnableConsole && !config.EnableCsv)
+        {
+            Console.WriteLine("EnableConsole e EnableCsv estão desativados. Ative pelo menos uma saída no config.json.");
+            return;
+        }
+
+        if (config.EnableConsole)
+        {
+            Console.WriteLine("Pressione Ctrl + C para sair.");
+        }
+        else
+        {
+            Console.WriteLine("Console desativado; gravando CSV em logs/. Pressione Ctrl + C para sair.");
+        }
 
         HardwareMonitorService hardwareMonitor = new HardwareMonitorService();
         ConsoleDisplayService consoleDisplay = new ConsoleDisplayService(config);
         CsvLoggerService csvLogger = new CsvLoggerService();
-        SnapshotService snapshotService = new SnapshotService();
+        SnapshotService snapshotService = new SnapshotService(config);
 
         while (true)
         {
             List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
             MonitorSnapshot snapshot = snapshotService.Create(sensors);
 
-            Console.Clear();
-            Console.WriteLine("=== Monitor de Hardware - Resumo ===");
-            Console.WriteLine($"Atualizado em: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
-            Console.WriteLine();
+            if (config.EnableConsole)
+            {
+                Console.Clear();
+                Console.WriteLine("=== Monitor de Hardware - Resumo ===");
+                Console.WriteLine($"Atualizado em: {DateTime.Now:dd/MM/yyyy HH:mm:ss}");
+                Console.WriteLine();
 
-            consoleDisplay.Show(sensors);
+                consoleDisplay.Show(sensors);
+            }
 
-            csvLogger.Save(snapshot);
+            if (config.EnableCsv)
+            {
+                csvLogger.Save(snapshot);
+            }
 
             Thread.Sleep(config.IntervaloMs);
         }

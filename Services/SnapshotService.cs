@@ -5,13 +5,16 @@ using LibreHardwareMonitor.Hardware;
 
 class SnapshotService
 {
+    private readonly AppConfig _config;
+
+    public SnapshotService(AppConfig config)
+    {
+        _config = config;
+    }
+
     public MonitorSnapshot Create(List<SensorReading> sensors)
     {
-        float? cpuFan = sensors
-            .Where(s => s.SensorType == SensorType.Fan && s.Value != null && s.Value > 0)
-            .OrderByDescending(s => s.Value)
-            .FirstOrDefault()
-            ?.Value;
+        float? cpuFan = HardwareMonitorService.GetCpuFan(sensors, _config.CpuFanSensorName);
 
         return new MonitorSnapshot
         {

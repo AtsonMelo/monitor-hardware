@@ -75,7 +75,11 @@ O arquivo `config.json` permite ajustar limites de alerta e intervalo de atualiz
   "CpuTempMax": 80,
   "GpuTempMax": 80,
   "SsdTempMax": 60,
-  "IntervaloMs": 2000
+  "IntervaloMs": 2000,
+  "EnableCsv": true,
+  "EnableConsole": true,
+  "Mode": "resumo",
+  "CpuFanSensorName": "Fan #2"
 }
 ```
 
@@ -84,7 +88,11 @@ Campos:
 - `CpuTempMax`: temperatura máxima esperada para CPU, em graus Celsius;
 - `GpuTempMax`: temperatura máxima esperada para GPU, em graus Celsius;
 - `SsdTempMax`: temperatura máxima esperada para SSD, em graus Celsius;
-- `IntervaloMs`: intervalo entre leituras, em milissegundos.
+- `IntervaloMs`: intervalo entre leituras, em milissegundos;
+- `EnableCsv`: ativa ou desativa a gravação automática de CSV;
+- `EnableConsole`: ativa ou desativa a exibição do resumo no console;
+- `Mode`: modo de execução configurado. Atualmente o modo suportado é `resumo`;
+- `CpuFanSensorName`: nome do sensor usado como fan da CPU.
 
 ## Hardware testado
 
