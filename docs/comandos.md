@@ -64,7 +64,7 @@ Rodar diagnóstico de sensores reais:
 dotnet run -- --diagnostico
 ```
 
-Gerar relatório HTML a partir do CSV mais recente:
+Gerar relatório HTML consolidando todos os CSVs da pasta `logs/`:
 
 ```powershell
 dotnet run -- --relatorio
@@ -73,13 +73,7 @@ dotnet run -- --relatorio
 Abrir o relatório HTML gerado:
 
 ```powershell
-Start-Process .\reports\monitor-hardware-YYYYMMDD.html
-```
-
-Exemplo real:
-
-```powershell
-Start-Process .\reports\monitor-hardware-20260505.html
+Start-Process .\reports\monitor-hardware-historico.html
 ```
 
 ## Arquivos gerados localmente
@@ -93,7 +87,7 @@ logs/monitor-hardware-YYYYMMDD.csv
 Relatórios HTML:
 
 ```text
-reports/monitor-hardware-YYYYMMDD.html
+reports/monitor-hardware-historico.html
 ```
 
 Essas pastas são artefatos locais e não devem ser commitadas.

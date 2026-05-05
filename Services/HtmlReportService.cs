@@ -6,57 +6,65 @@ using System.Linq;
 using System.Net;
 using System.Text;
 
-class HtmlReportService
+public class HtmlReportService
 {
     private static readonly CultureInfo InvariantCulture = CultureInfo.InvariantCulture;
     private static readonly CultureInfo BrazilianCulture = CultureInfo.GetCultureInfo("pt-BR");
 
-    public string GenerateLatestReport(string logsDirectory = "logs", string reportsDirectory = "reports")
+    public string GenerateHistoricalReport(string logsDirectory = "logs", string reportsDirectory = "reports")
     {
-        FileInfo latestCsv = GetLatestCsv(logsDirectory);
-        List<MonitorLogEntry> entries = ReadEntries(latestCsv.FullName);
+        List<FileInfo> csvFiles = GetCsvFiles(logsDirectory);
+        List<MonitorLogEntry> entries = csvFiles
+            .SelectMany(ReadEntries)
+            .OrderBy(entry => entry.Timestamp)
+            .ToList();
 
         if (entries.Count == 0)
         {
-            throw new InvalidOperationException($"O arquivo '{latestCsv.Name}' não possui leituras válidas.");
+            throw new InvalidOperationException($"Os arquivos CSV em '{logsDirectory}' não possuem leituras válidas.");
         }
 
         Directory.CreateDirectory(reportsDirectory);
 
-        string reportFileName = $"{Path.GetFileNameWithoutExtension(latestCsv.Name)}.html";
+        string reportFileName = "monitor-hardware-historico.html";
         string reportPath = Path.Combine(reportsDirectory, reportFileName);
 
-        File.WriteAllText(reportPath, BuildHtml(latestCsv.Name, entries), Encoding.UTF8);
+        File.WriteAllText(reportPath, BuildHtml(csvFiles.Select(file => file.Name).ToList(), entries), Encoding.UTF8);
 
         return reportPath;
     }
 
-    private static FileInfo GetLatestCsv(string logsDirectory)
+    private static List<FileInfo> GetCsvFiles(string logsDirectory)
     {
         if (!Directory.Exists(logsDirectory))
         {
             throw new DirectoryNotFoundException($"A pasta de logs '{logsDirectory}' não foi encontrada.");
         }
 
-        FileInfo? latestCsv = new DirectoryInfo(logsDirectory)
+        List<FileInfo> csvFiles = new DirectoryInfo(logsDirectory)
             .GetFiles("monitor-hardware-*.csv")
-            .OrderByDescending(file => file.LastWriteTime)
-            .FirstOrDefault();
+            .OrderBy(file => file.Name)
+            .ToList();
 
-        return latestCsv ?? throw new FileNotFoundException($"Nenhum CSV foi encontrado em '{logsDirectory}'.");
+        if (csvFiles.Count == 0)
+        {
+            throw new FileNotFoundException($"Nenhum CSV foi encontrado em '{logsDirectory}'.");
+        }
+
+        return csvFiles;
     }
 
-    private static List<MonitorLogEntry> ReadEntries(string csvPath)
+    private static List<MonitorLogEntry> ReadEntries(FileInfo csvFile)
     {
-        return File.ReadLines(csvPath)
+        return File.ReadLines(csvFile.FullName)
             .Skip(1)
-            .Select(ParseEntry)
+            .Select(line => ParseEntry(line, csvFile.Name))
             .Where(entry => entry != null)
             .Select(entry => entry!)
             .ToList();
     }
 
-    private static MonitorLogEntry? ParseEntry(string line)
+    private static MonitorLogEntry? ParseEntry(string line, string sourceFile)
     {
         string[] columns = line.Split(',');
 
@@ -72,6 +80,7 @@ class HtmlReportService
 
         return new MonitorLogEntry
         {
+            SourceFile = sourceFile,
             Timestamp = timestamp,
             CpuTemp = ParseOptionalFloat(columns[1]),
             CpuUso = ParseOptionalFloat(columns[2]),
@@ -92,10 +101,13 @@ class HtmlReportService
             : null;
     }
 
-    private static string BuildHtml(string csvFileName, List<MonitorLogEntry> entries)
+    private static string BuildHtml(List<string> csvFileNames, List<MonitorLogEntry> entries)
     {
         MonitorLogEntry first = entries.First();
         MonitorLogEntry last = entries.Last();
+        string filesSummary = csvFileNames.Count == 1
+            ? csvFileNames[0]
+            : $"{csvFileNames.Count} arquivos CSV ({csvFileNames.First()} até {csvFileNames.Last()})";
 
         StringBuilder html = new StringBuilder();
 
@@ -114,7 +126,7 @@ class HtmlReportService
         html.AppendLine("    <div>");
         html.AppendLine("      <p class=\"eyebrow\">Monitor Hardware</p>");
         html.AppendLine("      <h1>Relatório de desempenho</h1>");
-        html.AppendLine($"      <p class=\"meta\">Arquivo: {Escape(csvFileName)} | Leituras: {entries.Count} | Período: {FormatDate(first.Timestamp)} até {FormatDate(last.Timestamp)}</p>");
+        html.AppendLine($"      <p class=\"meta\">Arquivos: {Escape(filesSummary)} | Leituras: {entries.Count} | Período: {FormatDate(first.Timestamp)} até {FormatDate(last.Timestamp)}</p>");
         html.AppendLine("    </div>");
         html.AppendLine("  </header>");
         html.AppendLine("  <nav class=\"tabs\" aria-label=\"Visões do relatório\">");
@@ -429,12 +441,13 @@ class HtmlReportService
 
         html.AppendLine("    <section id=\"view-history\" class=\"view\">");
         html.AppendLine("      <h2>Histórico completo</h2>");
-        html.AppendLine($"      <p class=\"section-note\">Tabela com todas as {entries.Count} leituras válidas do CSV analisado.</p>");
+        html.AppendLine($"      <p class=\"section-note\">Tabela com todas as {entries.Count} leituras válidas encontradas nos arquivos CSV da pasta logs.</p>");
         html.AppendLine("      <div class=\"table-wrap\">");
         html.AppendLine("        <table>");
         html.AppendLine("          <thead>");
         html.AppendLine("            <tr>");
         html.AppendLine("              <th>Data/Hora</th>");
+        html.AppendLine("              <th>Arquivo</th>");
         html.AppendLine("              <th>CPU °C</th>");
         html.AppendLine("              <th>CPU %</th>");
         html.AppendLine("              <th>CPU W</th>");
@@ -452,6 +465,7 @@ class HtmlReportService
         {
             html.AppendLine("            <tr>");
             html.AppendLine($"              <td>{FormatDate(entry.Timestamp)}</td>");
+            html.AppendLine($"              <td>{Escape(entry.SourceFile)}</td>");
             html.AppendLine($"              <td>{FormatNumber(entry.CpuTemp)}</td>");
             html.AppendLine($"              <td>{FormatNumber(entry.CpuUso)}</td>");
             html.AppendLine($"              <td>{FormatNumber(entry.CpuPower)}</td>");
@@ -705,6 +719,7 @@ class HtmlReportService
 
     private class MonitorLogEntry
     {
+        public string SourceFile { get; set; } = "";
         public DateTime Timestamp { get; set; }
         public float? CpuTemp { get; set; }
         public float? CpuUso { get; set; }
