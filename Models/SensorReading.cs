@@ -1,6 +1,6 @@
 using LibreHardwareMonitor.Hardware;
 
-class SensorReading
+public class SensorReading
 {
     public string HardwareName { get; set; } = "";
     public HardwareType HardwareType { get; set; }
