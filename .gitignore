@@ -7,3 +7,4 @@ obj/
 *.bak
 Program.backup-*.cs
 Program.backup-*.cs.bak
+*.csv
