@@ -18,7 +18,7 @@ class Program
             try
             {
                 HtmlReportService htmlReportService = new HtmlReportService();
-                string reportPath = htmlReportService.GenerateLatestReport();
+                string reportPath = htmlReportService.GenerateHistoricalReport();
 
                 Console.WriteLine($"Relatório HTML gerado em: {reportPath}");
             }

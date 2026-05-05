@@ -27,7 +27,7 @@ O monitor exibe um resumo no console, atualiza os dados em intervalo configuráv
 
 ## Relatório HTML
 
-O projeto pode gerar um relatório HTML usando o CSV mais recente da pasta `logs/`.
+O projeto pode gerar um relatório HTML consolidando todos os CSVs encontrados na pasta `logs/`.
 
 Para executar:
 
@@ -35,13 +35,17 @@ Para executar:
 dotnet run -- --relatorio
 ```
 
-O relatório é salvo na pasta `reports/` com o mesmo nome-base do CSV analisado.
+O relatório é salvo na pasta `reports/` como:
+
+```text
+reports/monitor-hardware-historico.html
+```
 
 O HTML gerado inclui:
 
 - cards de métricas com mini-histórico;
 - gráficos de desempenho em grade;
-- histórico completo das leituras do CSV.
+- histórico completo das leituras dos CSVs.
 
 ## Modo diagnóstico
 
