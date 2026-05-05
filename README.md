@@ -25,6 +25,18 @@ dotnet run
 
 O monitor exibe um resumo no console, atualiza os dados em intervalo configurável e grava automaticamente um log CSV.
 
+Também é possível escolher o modo pela linha de comando:
+
+```powershell
+dotnet run -- --mode resumo
+dotnet run -- --mode detalhado
+dotnet run -- --mode somente-log
+```
+
+- `resumo`: mostra o painel resumido atual;
+- `detalhado`: mostra todos os sensores reais detectados em loop;
+- `somente-log`: grava CSV sem redesenhar o painel no console.
+
 ## Relatório HTML
 
 O projeto pode gerar um relatório HTML consolidando todos os CSVs encontrados na pasta `logs/`.
@@ -95,7 +107,7 @@ Campos:
 - `IntervaloMs`: intervalo entre leituras, em milissegundos;
 - `EnableCsv`: ativa ou desativa a gravação automática de CSV;
 - `EnableConsole`: ativa ou desativa a exibição do resumo no console;
-- `Mode`: modo de execução configurado. Atualmente o modo suportado é `resumo`;
+- `Mode`: modo de execução configurado. Modos suportados: `resumo`, `detalhado` e `somente-log`;
 - `CpuFanSensorName`: nome do sensor usado como fan da CPU.
 
 ## Hardware testado

@@ -50,6 +50,24 @@ Rodar o monitor em modo normal:
 dotnet run
 ```
 
+Rodar explicitamente em modo resumo:
+
+```powershell
+dotnet run -- --mode resumo
+```
+
+Rodar em modo detalhado, exibindo todos os sensores reais em loop:
+
+```powershell
+dotnet run -- --mode detalhado
+```
+
+Rodar somente gravando CSV:
+
+```powershell
+dotnet run -- --mode somente-log
+```
+
 Parar o monitor em modo normal:
 
 ```text
