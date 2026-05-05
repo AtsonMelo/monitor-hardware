@@ -1,4 +1,11 @@
-﻿using LibreHardwareMonitor.Hardware;
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using LibreHardwareMonitor.Hardware;
 
 class SensorReading
 {
@@ -9,11 +16,28 @@ class SensorReading
     public float? Value { get; set; }
 }
 
+class MonitorSnapshot
+{
+    public DateTime Timestamp { get; set; }
+
+    public float? CpuTemp { get; set; }
+    public float? CpuUso { get; set; }
+    public float? CpuPower { get; set; }
+    public float? CpuFan { get; set; }
+
+    public float? GpuTemp { get; set; }
+    public float? GpuUso { get; set; }
+    public float? GpuPower { get; set; }
+
+    public float? SsdTemp { get; set; }
+    public float? RamUso { get; set; }
+}
+
 class Program
 {
     static void Main()
     {
-        Console.WriteLine("Monitor de Hardware - versão resumida");
+        Console.WriteLine("Monitor de Hardware - versão resumida com CSV");
         Console.WriteLine("Pressione Ctrl + C para sair.");
 
         Computer computer = new Computer
@@ -32,6 +56,7 @@ class Program
         while (true)
         {
             List<SensorReading> sensors = ReadAllSensors(computer);
+            MonitorSnapshot snapshot = CriarSnapshot(sensors);
 
             Console.Clear();
             Console.WriteLine("=== Monitor de Hardware - Resumo ===");
@@ -44,6 +69,8 @@ class Program
             MostrarMemoria(sensors);
             MostrarRede(sensors);
             MostrarAlertas(sensors);
+
+            GravarCsv(snapshot);
 
             Thread.Sleep(2000);
         }
@@ -116,7 +143,6 @@ class Program
         float? cpuPower = GetSensor(sensors, HardwareType.Cpu, SensorType.Power, "CPU Package");
         float? cpuClock = GetSensor(sensors, HardwareType.Cpu, SensorType.Clock, "CPU Core #1");
 
-        // Fan geralmente vem do chip sensor da placa-mãe, não da CPU diretamente.
         float? cpuFan = sensors
             .Where(s => s.SensorType == SensorType.Fan && s.Value != null && s.Value > 0)
             .OrderByDescending(s => s.Value)
@@ -242,5 +268,72 @@ class Program
         }
 
         Console.WriteLine();
+    }
+
+    static MonitorSnapshot CriarSnapshot(List<SensorReading> sensors)
+    {
+        float? cpuFan = sensors
+            .Where(s => s.SensorType == SensorType.Fan && s.Value != null && s.Value > 0)
+            .OrderByDescending(s => s.Value)
+            .FirstOrDefault()
+            ?.Value;
+
+        return new MonitorSnapshot
+        {
+            Timestamp = DateTime.Now,
+
+            CpuTemp = GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package"),
+            CpuUso = GetSensor(sensors, HardwareType.Cpu, SensorType.Load, "CPU Total"),
+            CpuPower = GetSensor(sensors, HardwareType.Cpu, SensorType.Power, "CPU Package"),
+            CpuFan = cpuFan,
+
+            GpuTemp = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core"),
+            GpuUso = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Load, "GPU Core"),
+            GpuPower = GetSensor(sensors, HardwareType.GpuAmd, SensorType.Power, "GPU Package"),
+
+            SsdTemp = GetSensor(sensors, HardwareType.Storage, SensorType.Temperature, "Temperature"),
+
+            RamUso = sensors
+                .FirstOrDefault(s =>
+                    s.HardwareName.Equals("Total Memory", StringComparison.OrdinalIgnoreCase) &&
+                    s.SensorType == SensorType.Load &&
+                    s.SensorName.Equals("Memory", StringComparison.OrdinalIgnoreCase))
+                ?.Value
+        };
+    }
+
+    static void GravarCsv(MonitorSnapshot snapshot)
+    {
+        Directory.CreateDirectory("logs");
+
+        string filePath = Path.Combine("logs", $"monitor-hardware-{DateTime.Now:yyyyMMdd}.csv");
+        bool novoArquivo = !File.Exists(filePath);
+
+        using StreamWriter writer = new StreamWriter(filePath, append: true, Encoding.UTF8);
+
+        if (novoArquivo)
+        {
+            writer.WriteLine("DataHora,CPU_Temp_C,CPU_Uso_Percent,CPU_Power_W,CPU_Fan_RPM,GPU_Temp_C,GPU_Uso_Percent,GPU_Power_W,SSD_Temp_C,RAM_Uso_Percent");
+        }
+
+        writer.WriteLine(string.Join(",",
+            snapshot.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
+            Csv(snapshot.CpuTemp),
+            Csv(snapshot.CpuUso),
+            Csv(snapshot.CpuPower),
+            Csv(snapshot.CpuFan),
+            Csv(snapshot.GpuTemp),
+            Csv(snapshot.GpuUso),
+            Csv(snapshot.GpuPower),
+            Csv(snapshot.SsdTemp),
+            Csv(snapshot.RamUso)
+        ));
+    }
+
+    static string Csv(float? value)
+    {
+        return value.HasValue
+            ? value.Value.ToString("0.0", CultureInfo.InvariantCulture)
+            : "";
     }
 }
