@@ -25,6 +25,24 @@ dotnet run
 
 O monitor exibe um resumo no console, atualiza os dados em intervalo configurável e grava automaticamente um log CSV.
 
+## Relatório HTML
+
+O projeto pode gerar um relatório HTML usando o CSV mais recente da pasta `logs/`.
+
+Para executar:
+
+```powershell
+dotnet run -- --relatorio
+```
+
+O relatório é salvo na pasta `reports/` com o mesmo nome-base do CSV analisado.
+
+O HTML gerado inclui:
+
+- cards de métricas com mini-histórico;
+- gráficos de desempenho em grade;
+- histórico completo das leituras do CSV.
+
 ## Modo diagnóstico
 
 O projeto possui um modo de diagnóstico para listar todos os sensores físicos detectados pela biblioteca `LibreHardwareMonitorLib`.

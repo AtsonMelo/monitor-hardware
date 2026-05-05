@@ -8,3 +8,4 @@ obj/
 Program.backup-*.cs
 Program.backup-*.cs.bak
 *.csv
+reports/
