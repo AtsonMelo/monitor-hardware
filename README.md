@@ -24,6 +24,7 @@ dotnet run
 ```
 
 O monitor exibe um resumo no console, atualiza os dados em intervalo configurável e grava automaticamente um log CSV.
+Para encerrar, pressione `Ctrl + C`. O loop de monitoramento usa cancelamento controlado para finalizar sem deixar o processo preso.
 
 Também é possível escolher o modo pela linha de comando:
 
@@ -104,7 +105,7 @@ Campos:
 - `CpuTempMax`: temperatura máxima esperada para CPU, em graus Celsius;
 - `GpuTempMax`: temperatura máxima esperada para GPU, em graus Celsius;
 - `SsdTempMax`: temperatura máxima esperada para SSD, em graus Celsius;
-- `IntervaloMs`: intervalo entre leituras, em milissegundos;
+- `IntervaloMs`: intervalo entre leituras, em milissegundos. Deve ser maior que zero;
 - `EnableCsv`: ativa ou desativa a gravação automática de CSV;
 - `EnableConsole`: ativa ou desativa a exibição do resumo no console;
 - `Mode`: modo de execução configurado. Modos suportados: `resumo`, `detalhado` e `somente-log`;
