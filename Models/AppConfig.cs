@@ -1,4 +1,4 @@
-class AppConfig
+public class AppConfig
 {
     public float CpuTempMax { get; set; } = 80;
     public float GpuTempMax { get; set; } = 80;

@@ -1,8 +1,10 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "monitor-hardware", "monitor-hardware.csproj", "{712B534D-36A9-682A-6DB1-834FD7631545}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "monitor-hardware.Tests", "monitor-hardware.Tests\monitor-hardware.Tests.csproj", "{54B905C8-A8EB-4ABB-9DBD-5B3FFDE4F1F1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,6 +16,10 @@ Global
 		{712B534D-36A9-682A-6DB1-834FD7631545}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{712B534D-36A9-682A-6DB1-834FD7631545}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{712B534D-36A9-682A-6DB1-834FD7631545}.Release|Any CPU.Build.0 = Release|Any CPU
+		{54B905C8-A8EB-4ABB-9DBD-5B3FFDE4F1F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54B905C8-A8EB-4ABB-9DBD-5B3FFDE4F1F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54B905C8-A8EB-4ABB-9DBD-5B3FFDE4F1F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54B905C8-A8EB-4ABB-9DBD-5B3FFDE4F1F1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

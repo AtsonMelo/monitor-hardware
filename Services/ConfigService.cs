@@ -1,20 +1,25 @@
 using System.IO;
 using System.Text.Json;
 
-class ConfigService
+public class ConfigService
 {
-    private const string ConfigPath = "config.json";
+    private readonly string configPath;
+
+    public ConfigService(string configPath = "config.json")
+    {
+        this.configPath = configPath;
+    }
 
     public AppConfig Load()
     {
-        if (!File.Exists(ConfigPath))
+        if (!File.Exists(configPath))
         {
             AppConfig defaultConfig = new AppConfig();
             Save(defaultConfig);
             return defaultConfig;
         }
 
-        string json = File.ReadAllText(ConfigPath);
+        string json = File.ReadAllText(configPath);
 
         AppConfig? config = JsonSerializer.Deserialize<AppConfig>(json);
 
@@ -30,6 +35,6 @@ class ConfigService
 
         string json = JsonSerializer.Serialize(config, options);
 
-        File.WriteAllText(ConfigPath, json);
+        File.WriteAllText(configPath, json);
     }
 }
