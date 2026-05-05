@@ -3,12 +3,28 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
+
 
 class Program
 {
+    [STAThread]
     static async Task Main(string[] args)
     {
         Console.WriteLine("Monitor de Hardware");
+        if (args.Contains("--tray"))
+{
+    ApplicationConfiguration.Initialize();
+
+    using TrayIconService trayIconService = new TrayIconService();
+
+    Console.WriteLine("Ícone iniciado na bandeja. Use o menu do ícone para sair.");
+
+    Application.Run();
+
+    return;
+}
+
 
         if (args.Contains("--relatorio"))
         {
