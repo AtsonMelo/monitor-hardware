@@ -4,7 +4,12 @@ using System.Linq;
 using LibreHardwareMonitor.Hardware;
 
 class ConsoleDisplayService
-{
+{ private readonly AppConfig _config;
+
+    public ConsoleDisplayService(AppConfig config)
+    {
+        _config = config;
+    }
     public void Show(List<SensorReading> sensors)
     {
         MostrarCpu(sensors);
@@ -119,7 +124,7 @@ class ConsoleDisplayService
         Console.WriteLine();
     }
 
-    private static void MostrarAlertas(List<SensorReading> sensors)
+    private void MostrarAlertas(List<SensorReading> sensors)
     {
         float? cpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package");
         float? gpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core");
@@ -129,19 +134,19 @@ class ConsoleDisplayService
 
         bool alerta = false;
 
-        if (cpuTemp >= 80)
+        if (cpuTemp >= _config.CpuTempMax)
         {
             Console.WriteLine($"  ALERTA: CPU alta: {cpuTemp:F1} °C");
             alerta = true;
         }
 
-        if (gpuTemp >= 80)
+        if (gpuTemp >= _config.GpuTempMax)
         {
             Console.WriteLine($"  ALERTA: GPU alta: {gpuTemp:F1} °C");
             alerta = true;
         }
 
-        if (ssdTemp >= 60)
+        if (ssdTemp >= _config.SsdTempMax)
         {
             Console.WriteLine($"  ALERTA: SSD quente: {ssdTemp:F1} °C");
             alerta = true;
