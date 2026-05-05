@@ -12,6 +12,35 @@ class Program
     static void Main(string[] args)
     {
         Console.WriteLine("Monitor de Hardware - versão resumida com CSV");
+
+        if (args.Contains("--relatorio"))
+        {
+            try
+            {
+                HtmlReportService htmlReportService = new HtmlReportService();
+                string reportPath = htmlReportService.GenerateLatestReport();
+
+                Console.WriteLine($"Relatório HTML gerado em: {reportPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Não foi possível gerar o relatório: {ex.Message}");
+            }
+
+            return;
+        }
+
+        if (args.Contains("--diagnostico"))
+        {
+            HardwareMonitorService diagnosticHardwareMonitor = new HardwareMonitorService();
+            List<SensorReading> sensors = diagnosticHardwareMonitor.ReadAllSensors();
+
+            DiagnosticDisplayService diagnosticDisplay = new DiagnosticDisplayService();
+            diagnosticDisplay.Show(sensors);
+
+            return;
+        }
+
         Console.WriteLine("Pressione Ctrl + C para sair.");
 
         ConfigService configService = new ConfigService();
@@ -21,16 +50,6 @@ class Program
         ConsoleDisplayService consoleDisplay = new ConsoleDisplayService(config);
         CsvLoggerService csvLogger = new CsvLoggerService();
         SnapshotService snapshotService = new SnapshotService();
-
-        if (args.Contains("--diagnostico"))
-        {
-            List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
-
-            DiagnosticDisplayService diagnosticDisplay = new DiagnosticDisplayService();
-            diagnosticDisplay.Show(sensors);
-
-            return;
-        }
 
         while (true)
         {
