@@ -1,0 +1,41 @@
+name: Sugestão de melhoria
+description: Sugira uma funcionalidade, ajuste visual ou melhoria técnica.
+title: "[Sugestão]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Qual melhoria você sugere?
+      placeholder: "Exemplo: mostrar gráfico de temperatura da CPU em tempo real..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Por que isso seria útil?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Área relacionada
+      options:
+        - Interface gráfica
+        - Ícone na bandeja
+        - Sensores de hardware
+        - Rede
+        - Relatórios/logs
+        - Atualizações
+        - Android
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Referências, prints ou exemplos

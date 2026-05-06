@@ -1,0 +1,24 @@
+name: Pergunta ou comentário
+description: Envie dúvida, comentário geral ou feedback de uso.
+title: "[Feedback]: "
+labels:
+  - feedback
+body:
+  - type: textarea
+    id: message
+    attributes:
+      label: Mensagem
+      placeholder: "Conte sua dúvida, comentário ou experiência usando o app."
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versão do app, se aplicável
+      placeholder: "0.5.1"
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional

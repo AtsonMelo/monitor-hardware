@@ -1,0 +1,75 @@
+name: Erro no app
+description: Reporte falha, travamento ou comportamento inesperado.
+title: "[Bug]: "
+labels:
+  - bug
+  - triage
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Versão do app
+      placeholder: "0.5.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Modo usado
+      options:
+        - Interface gráfica
+        - Bandeja do Windows
+        - Console/resumo
+        - Console/detalhado
+        - Relatório HTML
+        - Inicialização com Windows
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: O que aconteceu?
+      placeholder: "Ao abrir o app, a janela aparece e fecha..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      placeholder: |
+        1. Baixei a versão...
+        2. Extraí o ZIP...
+        3. Executei como administrador...
+        4. O erro aconteceu...
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Versão do Windows
+      placeholder: "Windows 11 24H2 / Windows 11 Insider Preview / Windows 10"
+    validations:
+      required: true
+
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware principal
+      placeholder: |
+        CPU:
+        GPU:
+        Placa-mãe:
+        SSD/HD:
+        Notebook ou desktop:
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs ou mensagens de erro
+      description: Cole o trecho relevante de %LOCALAPPDATA%\MonitorHardware\logs\app.log.
+      render: text
