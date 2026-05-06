@@ -2,7 +2,7 @@
 
 Monitor de hardware em C#/.NET 8 para Windows, usando a biblioteca `LibreHardwareMonitorLib`.
 
-Versão atual: `0.5.0`.
+Versão atual: `0.5.1`.
 
 O projeto lê sensores reais do computador, como temperatura da CPU, uso da CPU, potência, clock, temperatura da GPU, temperatura do SSD, uso de memória RAM, velocidade de fan e informações de rede.
 
@@ -115,6 +115,17 @@ Também é possível ativar ou desativar essa opção pela própria interface gr
 O app verifica automaticamente se existe uma versão mais recente publicada nas Releases do GitHub. Também é possível verificar manualmente pela interface gráfica ou pelo menu do ícone na bandeja.
 
 Quando uma nova versão é encontrada, o app abre a página ou o arquivo de download da Release. A substituição automática dos arquivos instalados ainda é uma evolução futura.
+
+## Solução de problemas
+
+Se o app baixado não abrir:
+
+- extraia o arquivo `.zip` antes de executar;
+- execute `monitor-hardware.exe` como administrador;
+- verifique se o Windows SmartScreen bloqueou o arquivo baixado;
+- consulte o log em `%LOCALAPPDATA%\MonitorHardware\logs\app.log`.
+
+O app registra erros de inicialização nesse arquivo para facilitar diagnóstico em outras máquinas.
 
 ## Relatório HTML
 
@@ -304,6 +315,7 @@ dotnet test
 - ícones específicos para fans/coolers, com estado visual por rotação/alerta;
 - gráficos em tempo real na interface gráfica;
 - widget/mini painel inspirado no clima da barra de tarefas;
+- versão Android, provavelmente como app complementar em .NET MAUI consumindo dados do monitor Windows ou de uma API local;
 - distribuição por instalador e possível publicação via `winget`;
 - opção na interface para ativar/desativar inicialização automática com o Windows;
 - modo jogo/overlay leve para acompanhar métricas durante jogos;
