@@ -11,6 +11,7 @@ class HardwareDashboardForm : Form
     private readonly SnapshotService _snapshotService;
     private readonly CsvLoggerService _csvLogger;
     private readonly System.Windows.Forms.Timer _timer;
+    private readonly Icon _windowIcon;
 
     private Label _updatedAtLabel = null!;
     private Label _statusLabel = null!;
@@ -31,6 +32,9 @@ class HardwareDashboardForm : Form
         };
 
         Text = "Monitor Hardware";
+        _windowIcon = AppIconService.Load();
+        Icon = _windowIcon;
+        ShowInTaskbar = true;
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(760, 480);
         Size = new Size(900, 560);
@@ -46,7 +50,11 @@ class HardwareDashboardForm : Form
             RefreshSnapshot();
             _timer.Start();
         };
-        FormClosed += (_, _) => _timer.Dispose();
+        FormClosed += (_, _) =>
+        {
+            _timer.Dispose();
+            _windowIcon.Dispose();
+        };
     }
 
     private void BuildLayout()
