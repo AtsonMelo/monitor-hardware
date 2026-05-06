@@ -7,7 +7,6 @@ using System.Windows.Forms;
 class HardwareDashboardForm : Form
 {
     private readonly AppConfig _config;
-    private readonly HardwareMonitorService _hardwareMonitor;
     private readonly SnapshotService _snapshotService;
     private readonly CsvLoggerService _csvLogger;
     private readonly UpdateService _updateService;
@@ -23,11 +22,11 @@ class HardwareDashboardForm : Form
     private MetricCard _gpuCard = null!;
     private MetricCard _ramCard = null!;
     private MetricCard _ssdCard = null!;
+    private HardwareMonitorService? _hardwareMonitor;
 
     public HardwareDashboardForm(AppConfig config)
     {
         _config = config;
-        _hardwareMonitor = new HardwareMonitorService();
         _snapshotService = new SnapshotService(config);
         _csvLogger = new CsvLoggerService();
         _updateService = new UpdateService();
@@ -202,6 +201,8 @@ class HardwareDashboardForm : Form
     {
         try
         {
+            _hardwareMonitor ??= new HardwareMonitorService();
+
             List<SensorReading> sensors = _hardwareMonitor.ReadAllSensors();
             MonitorSnapshot snapshot = _snapshotService.Create(sensors);
 
@@ -217,6 +218,7 @@ class HardwareDashboardForm : Form
         }
         catch (Exception ex)
         {
+            AppLogService.Error(ex, "Não foi possível atualizar o painel gráfico.");
             _statusLabel.Text = $"Não foi possível ler os sensores: {ex.Message}";
             _statusLabel.ForeColor = Color.FromArgb(255, 185, 0);
         }

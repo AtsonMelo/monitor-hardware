@@ -12,6 +12,32 @@ class Program
     [STAThread]
     static async Task Main(string[] args)
     {
+        try
+        {
+            await RunAsync(args);
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Falha não tratada na inicialização do app.");
+
+            if (args.Contains("--gui") || args.Contains("--tray"))
+            {
+                MessageBox.Show(
+                    $"Não foi possível iniciar o Monitor Hardware.\n\nDetalhes foram salvos em:\n{AppLogService.LogPath}\n\nErro: {ex.Message}",
+                    "Monitor Hardware",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+            else
+            {
+                Console.WriteLine($"Erro fatal: {ex.Message}");
+                Console.WriteLine($"Log: {AppLogService.LogPath}");
+            }
+        }
+    }
+
+    private static async Task RunAsync(string[] args)
+    {
         bool isGraphicalMode = args.Contains("--gui") || args.Contains("--tray");
 
         if (!isGraphicalMode)
@@ -23,6 +49,7 @@ class Program
         if (args.Contains("--gui"))
         {
             ApplicationConfiguration.Initialize();
+            ConfigureWindowsFormsErrorHandling();
 
             ConfigService guiConfigService = new ConfigService();
             AppConfig guiConfig = guiConfigService.Load();
@@ -45,6 +72,7 @@ class Program
         if (args.Contains("--tray"))
         {
             ApplicationConfiguration.Initialize();
+            ConfigureWindowsFormsErrorHandling();
 
             ConfigService trayConfigService = new ConfigService();
             AppConfig trayConfig = trayConfigService.Load();
@@ -55,9 +83,6 @@ class Program
                 return;
             }
 
-            HardwareMonitorService trayHardwareMonitor = new HardwareMonitorService();
-            SnapshotService traySnapshotService = new SnapshotService(trayConfig);
-
             using CancellationTokenSource trayCancellationTokenSource = new CancellationTokenSource();
             using TrayIconService trayIconService = new TrayIconService(trayConfig);
 
@@ -65,8 +90,6 @@ class Program
 
             Task trayMonitorTask = RunTrayMonitorAsync(
                 trayConfig,
-                trayHardwareMonitor,
-                traySnapshotService,
                 trayIconService,
                 trayCancellationTokenSource.Token);
 
@@ -165,9 +188,6 @@ class Program
 
     private static async Task RunGuiAsync(AppConfig config)
     {
-        HardwareMonitorService trayHardwareMonitor = new HardwareMonitorService();
-        SnapshotService traySnapshotService = new SnapshotService(config);
-
         using HardwareDashboardForm dashboardForm = new HardwareDashboardForm(config);
         using CancellationTokenSource trayCancellationTokenSource = new CancellationTokenSource();
         using TrayIconService trayIconService = new TrayIconService(config, dashboardForm);
@@ -176,8 +196,6 @@ class Program
 
         Task trayMonitorTask = RunTrayMonitorAsync(
             config,
-            trayHardwareMonitor,
-            traySnapshotService,
             trayIconService,
             trayCancellationTokenSource.Token);
 
@@ -189,19 +207,28 @@ class Program
 
     private static async Task RunTrayMonitorAsync(
         AppConfig config,
-        HardwareMonitorService hardwareMonitor,
-        SnapshotService snapshotService,
         TrayIconService trayIconService,
         CancellationToken cancellationToken)
     {
         using PeriodicTimer timer = new PeriodicTimer(TimeSpan.FromMilliseconds(config.IntervaloMs));
+        HardwareMonitorService? hardwareMonitor = null;
+        SnapshotService snapshotService = new SnapshotService(config);
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
-            MonitorSnapshot snapshot = snapshotService.Create(sensors);
+            try
+            {
+                hardwareMonitor ??= new HardwareMonitorService();
 
-            trayIconService.UpdateTooltip(snapshot);
+                List<SensorReading> sensors = hardwareMonitor.ReadAllSensors();
+                MonitorSnapshot snapshot = snapshotService.Create(sensors);
+
+                trayIconService.UpdateTooltip(snapshot);
+            }
+            catch (Exception ex)
+            {
+                AppLogService.Error(ex, "Não foi possível atualizar o ícone da bandeja.");
+            }
 
             try
             {
@@ -276,6 +303,27 @@ class Program
 
         Console.WriteLine();
         Console.WriteLine("Monitor encerrado.");
+    }
+
+    private static void ConfigureWindowsFormsErrorHandling()
+    {
+        Application.ThreadException += (_, eventArgs) =>
+        {
+            AppLogService.Error(eventArgs.Exception, "Erro não tratado na interface gráfica.");
+            MessageBox.Show(
+                $"Ocorreu um erro no Monitor Hardware.\n\nLog: {AppLogService.LogPath}\n\nErro: {eventArgs.Exception.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        };
+
+        AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
+        {
+            if (eventArgs.ExceptionObject is Exception exception)
+            {
+                AppLogService.Error(exception, "Erro não tratado no processo.");
+            }
+        };
     }
 
     private static CancellationTokenSource CreateCancellationTokenSource()
