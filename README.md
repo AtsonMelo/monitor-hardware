@@ -2,7 +2,7 @@
 
 Monitor de hardware para Windows feito em C#/.NET 8, usando `LibreHardwareMonitorLib`.
 
-Versão atual: `0.6.2`.
+Versão atual: `0.6.4`.
 
 O app lê sensores reais do computador e mostra informações de CPU, GPU, RAM, SSD, fans, rede, alertas, logs CSV, relatório HTML, interface gráfica e ícone na bandeja do Windows.
 
@@ -31,6 +31,14 @@ Start-Process (Join-Path $installPath "monitor-hardware.exe") -Verb RunAs
 
 Se já existir uma versão aberta, feche o app pelo menu `Sair` no ícone da bandeja antes de extrair uma nova versão.
 
+## Destaques da v0.6.4
+
+- Clique no `X` esconde o app na bandeja em vez de encerrar completamente.
+- Menu `Sair` no ícone da bandeja encerra o app de verdade.
+- Carregamento inicial da interface foi suavizado.
+- Relatórios de erro e relatórios técnicos sanitizados são gerados em `logs/github` para anexar em Issues.
+- Mensagem de atualização informa a pasta atual onde a atualização será aplicada.
+- Melhorias no fluxo de diagnóstico e suporte para GitHub.
 ## Funcionalidades
 
 - Interface gráfica com cards de CPU, GPU, RAM e SSD;
@@ -134,3 +142,4 @@ dotnet run -- --gui
 O objetivo do projeto é aprender Windows Internals na prática, entendendo como uma aplicação conversa com o hardware por meio de sensores, drivers, APIs do Windows, bibliotecas de leitura e interfaces de visualização.
 
 O próximo grande caminho é uma edição técnica do app, voltada a diagnóstico, vida útil de hardware, rede, histórico e análise de comportamento do computador.
+
