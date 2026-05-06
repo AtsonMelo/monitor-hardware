@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Baixar a versão mais recente
+    url: https://github.com/AtsonMelo/monitor-hardware/releases/latest
+    about: Baixe a última versão publicada antes de abrir um chamado.
+  - name: Documentação de suporte
+    url: https://github.com/AtsonMelo/monitor-hardware/blob/main/docs/suporte.md
+    about: Veja onde ficam os logs e como enviar informações úteis.
