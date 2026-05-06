@@ -301,7 +301,19 @@ class Program
 
         trayIconService.Hide();
         trayCancellationTokenSource.Cancel();
-        await trayMonitorTask;
+
+        Task completedTask = await Task.WhenAny(
+            trayMonitorTask,
+            Task.Delay(TimeSpan.FromSeconds(2)));
+
+        if (completedTask != trayMonitorTask)
+        {
+            AppLogService.Info("Monitoramento da bandeja não encerrou dentro do tempo limite. Prosseguindo com encerramento do app.");
+        }
+        else
+        {
+            await trayMonitorTask;
+        }
     }
 
     private static async Task RunTrayMonitorAsync(

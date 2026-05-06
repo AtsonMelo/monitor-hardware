@@ -53,27 +53,63 @@ class HardwareDashboardForm : Form
         BackColor = Color.FromArgb(17, 19, 22);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point);
+        DoubleBuffered = true;
 
         BuildLayout();
+        SetLoadingState();
 
         _timer.Tick += (_, _) => RefreshSnapshot();
-        Shown += async (_, _) =>
-        {
-            RefreshSnapshot();
-            RefreshStartupState();
-            _timer.Start();
+        Shown += (_, _) =>
+{
+    SetLoadingState();
+    RefreshStartupState();
+    _timer.Start();
 
-            if (_config.EnableAutoUpdateCheck)
-            {
-                await CheckForUpdatesAsync(showUpToDate: false);
-            }
-        };
+    BeginInvoke(new Action(async () =>
+    {
+        await Task.Delay(300);
+
+        RefreshSnapshot();
+
+        if (_config.EnableAutoUpdateCheck)
+        {
+            await CheckForUpdatesAsync(showUpToDate: false);
+        }
+    }));
+};
+        FormClosing += HardwareDashboardFormClosing;
+
         FormClosed += (_, _) =>
         {
+            _timer.Stop();
             _timer.Dispose();
             _helpMenu.Dispose();
             _windowIcon.Dispose();
         };
+    }
+
+    private void HardwareDashboardFormClosing(object? sender, FormClosingEventArgs e)
+    {
+        if (e.CloseReason != CloseReason.UserClosing)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        Hide();
+        ShowInTaskbar = false;
+    }
+
+    private void SetLoadingState()
+    {
+        _cpuCard.SetValues("...", "Carregando sensores da CPU...", Color.FromArgb(170, 176, 184));
+        _gpuCard.SetValues("...", "Carregando sensores da GPU...", Color.FromArgb(170, 176, 184));
+        _ramCard.SetValues("...", "Carregando memória RAM...", Color.FromArgb(170, 176, 184));
+        _ssdCard.SetValues("...", "Carregando sensores do SSD...", Color.FromArgb(170, 176, 184));
+
+        _updatedAtLabel.Text = "Inicializando monitoramento...";
+        _statusLabel.Text = "Carregando sensores...";
+        _statusLabel.ForeColor = Color.FromArgb(170, 176, 184);
     }
     private static Size GetInitialWindowSize()
     {
@@ -379,16 +415,21 @@ class HardwareDashboardForm : Form
             if (result.HasUpdate)
             {
                 DialogResult dialogResult = MessageBox.Show(
-                    $"Existe uma nova versão disponível: {result.LatestVersion}. Versão atual: {result.CurrentVersion}.\n\nDeseja baixar e instalar agora?\n\nO Monitor Hardware será fechado e reaberto automaticamente.",
-                    "Atualização disponível",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Information);
+                $"Existe uma nova versão disponível: {result.LatestVersion}. Versão atual: {result.CurrentVersion}.\n\n" +
+                $"Deseja baixar e aplicar a atualização agora?\n\n" +
+                $"A atualização será aplicada na pasta atual do aplicativo:\n{AppContext.BaseDirectory}\n\n" +
+                $"Se você abriu o app por uma pasta de teste, o atalho da Área de Trabalho pode continuar apontando para outra instalação.\n\n" +
+                $"O Monitor Hardware será fechado e reaberto automaticamente.",
+                "Atualização disponível",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information);
 
                 if (dialogResult == DialogResult.Yes)
                 {
                     Progress<string> progress = new Progress<string>(message => _updateButton.Text = message);
 
                     await _updateService.StartUpdateAsync(result, progress);
+                    AppLogService.Info($"Atualização iniciada na pasta: {AppContext.BaseDirectory}");
                     Application.Exit();
                 }
             }
