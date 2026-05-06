@@ -53,21 +53,30 @@ class HardwareDashboardForm : Form
         BackColor = Color.FromArgb(17, 19, 22);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point);
+        DoubleBuffered = true;
 
         BuildLayout();
+        SetLoadingState();
 
         _timer.Tick += (_, _) => RefreshSnapshot();
-        Shown += async (_, _) =>
-        {
-            RefreshSnapshot();
-            RefreshStartupState();
-            _timer.Start();
+        Shown += (_, _) =>
+{
+    SetLoadingState();
+    RefreshStartupState();
+    _timer.Start();
 
-            if (_config.EnableAutoUpdateCheck)
-            {
-                await CheckForUpdatesAsync(showUpToDate: false);
-            }
-        };
+    BeginInvoke(new Action(async () =>
+    {
+        await Task.Delay(300);
+
+        RefreshSnapshot();
+
+        if (_config.EnableAutoUpdateCheck)
+        {
+            await CheckForUpdatesAsync(showUpToDate: false);
+        }
+    }));
+};
         FormClosing += HardwareDashboardFormClosing;
 
         FormClosed += (_, _) =>
@@ -89,6 +98,18 @@ class HardwareDashboardForm : Form
         e.Cancel = true;
         Hide();
         ShowInTaskbar = false;
+    }
+
+    private void SetLoadingState()
+    {
+        _cpuCard.SetValues("...", "Carregando sensores da CPU...", Color.FromArgb(170, 176, 184));
+        _gpuCard.SetValues("...", "Carregando sensores da GPU...", Color.FromArgb(170, 176, 184));
+        _ramCard.SetValues("...", "Carregando memória RAM...", Color.FromArgb(170, 176, 184));
+        _ssdCard.SetValues("...", "Carregando sensores do SSD...", Color.FromArgb(170, 176, 184));
+
+        _updatedAtLabel.Text = "Inicializando monitoramento...";
+        _statusLabel.Text = "Carregando sensores...";
+        _statusLabel.ForeColor = Color.FromArgb(170, 176, 184);
     }
     private static Size GetInitialWindowSize()
     {
