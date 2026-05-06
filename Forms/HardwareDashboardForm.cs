@@ -68,12 +68,27 @@ class HardwareDashboardForm : Form
                 await CheckForUpdatesAsync(showUpToDate: false);
             }
         };
+        FormClosing += HardwareDashboardFormClosing;
+
         FormClosed += (_, _) =>
         {
+            _timer.Stop();
             _timer.Dispose();
             _helpMenu.Dispose();
             _windowIcon.Dispose();
         };
+    }
+
+    private void HardwareDashboardFormClosing(object? sender, FormClosingEventArgs e)
+    {
+        if (e.CloseReason != CloseReason.UserClosing)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+        Hide();
+        ShowInTaskbar = false;
     }
     private static Size GetInitialWindowSize()
     {

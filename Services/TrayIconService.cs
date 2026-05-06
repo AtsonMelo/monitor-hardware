@@ -264,8 +264,10 @@ class TrayIconService : IDisposable
     {
         if (_dashboardForm is { IsDisposed: false })
         {
+            _dashboardForm.ShowInTaskbar = true;
             _dashboardForm.Show();
             _dashboardForm.WindowState = FormWindowState.Normal;
+            _dashboardForm.BringToFront();
             _dashboardForm.Activate();
             return;
         }
