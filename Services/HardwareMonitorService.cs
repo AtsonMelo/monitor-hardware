@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using LibreHardwareMonitor.Hardware;
 
 public class HardwareMonitorService
@@ -17,7 +18,8 @@ public class HardwareMonitorService
             IsStorageEnabled = true,
             IsMemoryEnabled = true,
             IsControllerEnabled = true,
-            IsNetworkEnabled = true
+            IsNetworkEnabled = true,
+            IsBatteryEnabled = true
         };
 
         _computer.Open();
@@ -35,9 +37,68 @@ public class HardwareMonitorService
         return sensors;
     }
 
+    public List<SensorReading> ReadAllSensorsWithWarmup(int attempts = 3, int delayMs = 350)
+    {
+        if (attempts < 1)
+        {
+            attempts = 1;
+        }
+
+        Dictionary<string, SensorReading> bestReadings = new();
+
+        for (int attempt = 0; attempt < attempts; attempt++)
+        {
+            List<SensorReading> currentReadings = ReadAllSensors();
+
+            foreach (SensorReading reading in currentReadings)
+            {
+                string key = GetSensorKey(reading);
+
+                if (!bestReadings.TryGetValue(key, out SensorReading? existing))
+                {
+                    bestReadings[key] = reading;
+                    continue;
+                }
+
+                if (reading.Value.HasValue || !existing.Value.HasValue)
+                {
+                    bestReadings[key] = reading;
+                }
+            }
+
+            if (attempt < attempts - 1)
+            {
+                Thread.Sleep(delayMs);
+            }
+        }
+
+        return bestReadings
+            .Values
+            .OrderBy(sensor => sensor.HardwareType.ToString())
+            .ThenBy(sensor => sensor.HardwareName)
+            .ThenBy(sensor => sensor.SensorType.ToString())
+            .ThenBy(sensor => sensor.SensorName)
+            .ToList();
+    }
+
+    private static string GetSensorKey(SensorReading reading)
+    {
+        if (!string.IsNullOrWhiteSpace(reading.SensorIdentifier))
+        {
+            return reading.SensorIdentifier;
+        }
+
+        return $"{reading.HardwareType}|{reading.HardwareName}|{reading.SensorType}|{reading.SensorName}";
+    }
+
     private void ReadHardwareRecursive(IHardware hardware, List<SensorReading> sensors)
     {
         hardware.Update();
+
+        foreach (IHardware subHardware in hardware.SubHardware)
+        {
+            subHardware.Update();
+        }
 
         foreach (ISensor sensor in hardware.Sensors)
         {
@@ -45,9 +106,15 @@ public class HardwareMonitorService
             {
                 HardwareName = hardware.Name,
                 HardwareType = hardware.HardwareType,
+                HardwareIdentifier = hardware.Identifier.ToString(),
+
                 SensorName = sensor.Name,
                 SensorType = sensor.SensorType,
-                Value = sensor.Value
+                SensorIdentifier = sensor.Identifier.ToString(),
+
+                Value = sensor.Value,
+                Min = sensor.Min,
+                Max = sensor.Max
             });
         }
 
