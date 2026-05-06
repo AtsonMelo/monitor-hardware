@@ -217,23 +217,15 @@ class Program
                 AppConfig technicalConfig = technicalConfigService.Load();
 
                 TechnicalReportResult result = TechnicalReportService.Create(technicalConfig);
+                SanitizedReportResult sanitizedResult = ReportSanitizerService.CreateSanitizedCopy(result.ReportPath);
 
                 Console.WriteLine($"Relatório técnico gerado em: {result.ReportPath}");
+                Console.WriteLine($"Relatório técnico sanitizado para GitHub gerado em: {sanitizedResult.SanitizedPath}");
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Não foi possível gerar o relatório técnico: {ex.Message}");
             }
-
-            return;
-        }
-        if (args.Contains("--diagnostico"))
-        {
-            HardwareMonitorService diagnosticHardwareMonitor = new HardwareMonitorService();
-            List<SensorReading> sensors = diagnosticHardwareMonitor.ReadAllSensors();
-
-            DiagnosticDisplayService diagnosticDisplayOnce = new DiagnosticDisplayService();
-            diagnosticDisplayOnce.Show(sensors);
 
             return;
         }

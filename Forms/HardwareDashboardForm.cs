@@ -450,6 +450,8 @@ class HardwareDashboardForm : Form
     {
         ErrorReportResult? errorReport = null;
         TechnicalReportResult? technicalReport = null;
+        SanitizedReportResult? sanitizedErrorReport = null;
+        SanitizedReportResult? sanitizedTechnicalReport = null;
 
         try
         {
@@ -459,14 +461,18 @@ class HardwareDashboardForm : Form
             errorReport = ErrorReportService.Create(_config);
             technicalReport = TechnicalReportService.Create(_config);
 
-            string reportsFolder = Path.GetDirectoryName(errorReport.ReportPath)
+            sanitizedErrorReport = ReportSanitizerService.CreateSanitizedCopy(errorReport.ReportPath);
+            sanitizedTechnicalReport = ReportSanitizerService.CreateSanitizedCopy(technicalReport.ReportPath);
+
+            string reportsFolder = Path.GetDirectoryName(sanitizedErrorReport.SanitizedPath)
                 ?? AppLogService.LogDirectory;
 
             DialogResult dialogResult = MessageBox.Show(
                 $"Relatórios gerados com sucesso.\n\n" +
-                $"Relatório de erros:\n{errorReport.ReportPath}\n\n" +
-                $"Relatório técnico:\n{technicalReport.ReportPath}\n\n" +
-                $"Para enviar ao suporte, anexe esses arquivos na Issue do GitHub.\n\n" +
+                $"Arquivos recomendados para anexar no GitHub:\n\n" +
+                $"{sanitizedErrorReport.SanitizedPath}\n\n" +
+                $"{sanitizedTechnicalReport.SanitizedPath}\n\n" +
+                $"Os arquivos originais também foram mantidos localmente, mas para Issue pública use preferencialmente os arquivos .sanitized.txt.\n\n" +
                 $"Deseja abrir o GitHub e a pasta dos relatórios agora?",
                 "Relatório de erros",
                 MessageBoxButtons.YesNo,
@@ -490,10 +496,20 @@ class HardwareDashboardForm : Form
                 ? $"\n\nRelatório técnico salvo em:\n{technicalReport.ReportPath}"
                 : "";
 
+            string sanitizedErrorPathText = sanitizedErrorReport != null
+                ? $"\n\nRelatório de erros sanitizado salvo em:\n{sanitizedErrorReport.SanitizedPath}"
+                : "";
+
+            string sanitizedTechnicalPathText = sanitizedTechnicalReport != null
+                ? $"\n\nRelatório técnico sanitizado salvo em:\n{sanitizedTechnicalReport.SanitizedPath}"
+                : "";
+
             MessageBox.Show(
                 $"Não foi possível concluir a geração dos relatórios: {ex.Message}" +
                 errorReportPathText +
-                technicalReportPathText,
+                technicalReportPathText +
+                sanitizedErrorPathText +
+                sanitizedTechnicalPathText,
                 "Monitor Hardware",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
