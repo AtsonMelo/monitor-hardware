@@ -415,16 +415,21 @@ class HardwareDashboardForm : Form
             if (result.HasUpdate)
             {
                 DialogResult dialogResult = MessageBox.Show(
-                    $"Existe uma nova versão disponível: {result.LatestVersion}. Versão atual: {result.CurrentVersion}.\n\nDeseja baixar e instalar agora?\n\nO Monitor Hardware será fechado e reaberto automaticamente.",
-                    "Atualização disponível",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Information);
+                $"Existe uma nova versão disponível: {result.LatestVersion}. Versão atual: {result.CurrentVersion}.\n\n" +
+                $"Deseja baixar e aplicar a atualização agora?\n\n" +
+                $"A atualização será aplicada na pasta atual do aplicativo:\n{AppContext.BaseDirectory}\n\n" +
+                $"Se você abriu o app por uma pasta de teste, o atalho da Área de Trabalho pode continuar apontando para outra instalação.\n\n" +
+                $"O Monitor Hardware será fechado e reaberto automaticamente.",
+                "Atualização disponível",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information);
 
                 if (dialogResult == DialogResult.Yes)
                 {
                     Progress<string> progress = new Progress<string>(message => _updateButton.Text = message);
 
                     await _updateService.StartUpdateAsync(result, progress);
+                    AppLogService.Info($"Atualização iniciada na pasta: {AppContext.BaseDirectory}");
                     Application.Exit();
                 }
             }
