@@ -29,7 +29,7 @@ class Program
                 return;
             }
 
-            Application.Run(new HardwareDashboardForm(guiConfig));
+            await RunGuiAsync(guiConfig);
 
             return;
         }
@@ -153,6 +153,30 @@ class Program
             csvLogger,
             snapshotService,
             cancellationTokenSource.Token);
+    }
+
+    private static async Task RunGuiAsync(AppConfig config)
+    {
+        HardwareMonitorService trayHardwareMonitor = new HardwareMonitorService();
+        SnapshotService traySnapshotService = new SnapshotService(config);
+
+        using HardwareDashboardForm dashboardForm = new HardwareDashboardForm(config);
+        using CancellationTokenSource trayCancellationTokenSource = new CancellationTokenSource();
+        using TrayIconService trayIconService = new TrayIconService(config, dashboardForm);
+
+        Application.ApplicationExit += (_, _) => trayCancellationTokenSource.Cancel();
+
+        Task trayMonitorTask = RunTrayMonitorAsync(
+            config,
+            trayHardwareMonitor,
+            traySnapshotService,
+            trayIconService,
+            trayCancellationTokenSource.Token);
+
+        Application.Run(dashboardForm);
+
+        trayCancellationTokenSource.Cancel();
+        await trayMonitorTask;
     }
 
     private static async Task RunTrayMonitorAsync(

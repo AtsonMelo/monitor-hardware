@@ -9,12 +9,17 @@ class TrayIconService : IDisposable
 {
     private readonly AppConfig _config;
     private readonly NotifyIcon _notifyIcon;
+    private readonly Icon _baseIcon;
+    private readonly bool _ownsDashboardForm;
     private Icon? _currentIcon;
     private HardwareDashboardForm? _dashboardForm;
 
-    public TrayIconService(AppConfig config)
+    public TrayIconService(AppConfig config, HardwareDashboardForm? dashboardForm = null)
     {
         _config = config;
+        _dashboardForm = dashboardForm;
+        _ownsDashboardForm = dashboardForm == null;
+        _baseIcon = AppIconService.Load();
 
         ContextMenuStrip menu = new ContextMenuStrip();
 
@@ -42,7 +47,7 @@ class TrayIconService : IDisposable
 
         _notifyIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = _baseIcon,
             Text = "Monitor Hardware",
             ContextMenuStrip = menu,
             Visible = true
@@ -213,8 +218,13 @@ class TrayIconService : IDisposable
     public void Dispose()
     {
         Hide();
-        _dashboardForm?.Dispose();
+        if (_ownsDashboardForm)
+        {
+            _dashboardForm?.Dispose();
+        }
+
         _notifyIcon.Dispose();
+        _baseIcon.Dispose();
         _currentIcon?.Dispose();
     }
 

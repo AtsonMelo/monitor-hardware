@@ -60,11 +60,23 @@ Esse modo abre uma janela própria do Windows com cards de CPU, GPU, RAM e SSD. 
 
 No modo bandeja, o menu do ícone também possui a opção `Abrir painel`, que abre a mesma interface gráfica.
 
+Ao abrir o modo gráfico, o app também inicia automaticamente o ícone da bandeja.
+
 ## Execução como administrador
 
 Algumas leituras físicas, principalmente temperatura da CPU, podem exigir privilégios de administrador no Windows. O executável usa `app.manifest` com `requireAdministrator`, então o Windows solicita elevação via UAC ao abrir o app.
 
 Durante o desenvolvimento, se a temperatura da CPU aparecer como indisponível, abra o PowerShell ou o VS Code como administrador e execute novamente.
+
+## Atalho na Área de Trabalho
+
+Para publicar o app e criar um atalho na Área de Trabalho apontando para o modo gráfico:
+
+```powershell
+.\scripts\criar-atalho.ps1
+```
+
+O script executa `dotnet publish` e cria o atalho `Monitor Hardware.lnk`. Ao abrir o atalho, o app inicia em modo gráfico e também mostra o ícone na bandeja.
 
 ## Relatório HTML
 
