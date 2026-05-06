@@ -15,6 +15,11 @@ class SnapshotService
     public MonitorSnapshot Create(List<SensorReading> sensors)
     {
         float? cpuFan = HardwareMonitorService.GetCpuFan(sensors, _config.CpuFanSensorName);
+        float? ramUsadaGb = GetMemoryData(sensors, "Memory Used");
+        float? ramDisponivelGb = GetMemoryData(sensors, "Memory Available");
+        float? ramTotalGb = ramUsadaGb.HasValue && ramDisponivelGb.HasValue
+            ? ramUsadaGb.Value + ramDisponivelGb.Value
+            : null;
 
         return new MonitorSnapshot
         {
@@ -28,6 +33,7 @@ class SnapshotService
             GpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core"),
             GpuUso = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Load, "GPU Core"),
             GpuPower = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Power, "GPU Package"),
+            GpuFan = GetGpuFan(sensors),
 
             SsdTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Temperature, "Temperature"),
 
@@ -36,7 +42,11 @@ class SnapshotService
                     s.HardwareName.Equals("Total Memory", StringComparison.OrdinalIgnoreCase) &&
                     s.SensorType == SensorType.Load &&
                     s.SensorName.Equals("Memory", StringComparison.OrdinalIgnoreCase))
-                ?.Value
+                ?.Value,
+
+            RamUsadaGb = ramUsadaGb,
+            RamDisponivelGb = ramDisponivelGb,
+            RamTotalGb = ramTotalGb
         };
     }
 
@@ -69,6 +79,40 @@ class SnapshotService
                 s.SensorType == SensorType.Temperature &&
                 s.Value.HasValue &&
                 !s.SensorName.Contains("Distance to TjMax", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(s => s.Value)
+            .FirstOrDefault()
+            ?.Value;
+    }
+
+    private static float? GetMemoryData(List<SensorReading> sensors, string sensorName)
+    {
+        return sensors
+            .FirstOrDefault(s =>
+                s.HardwareName.Equals("Total Memory", StringComparison.OrdinalIgnoreCase) &&
+                s.SensorType == SensorType.Data &&
+                s.SensorName.Equals(sensorName, StringComparison.OrdinalIgnoreCase) &&
+                s.Value.HasValue)
+            ?.Value;
+    }
+
+    private static float? GetGpuFan(List<SensorReading> sensors)
+    {
+        float? configuredGpuFan = HardwareMonitorService.GetSensor(
+            sensors,
+            HardwareType.GpuAmd,
+            SensorType.Fan,
+            "GPU Fan");
+
+        if (configuredGpuFan.HasValue)
+        {
+            return configuredGpuFan;
+        }
+
+        return sensors
+            .Where(s =>
+                s.HardwareType.ToString().StartsWith("Gpu", StringComparison.OrdinalIgnoreCase) &&
+                s.SensorType == SensorType.Fan &&
+                s.Value.HasValue)
             .OrderByDescending(s => s.Value)
             .FirstOrDefault()
             ?.Value;
