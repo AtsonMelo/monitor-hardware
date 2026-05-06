@@ -124,4 +124,6 @@ UAC é o controle do Windows que pergunta se você permite que um programa rode 
 
 O app verifica se existe versão mais recente publicada nas Releases do GitHub.
 
-Quando uma nova versão é encontrada, o app abre a página ou o arquivo de download. A substituição automática dos arquivos instalados ainda é evolução futura.
+Quando uma nova versão é encontrada, o app pode baixar o pacote ZIP, extrair em uma pasta temporária, fechar o processo atual, copiar os arquivos novos por cima da pasta instalada e abrir o app novamente.
+
+Por segurança, o atualizador preserva `config.json` e a pasta `logs/`, para não apagar configurações e histórico local.
