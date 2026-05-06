@@ -2,7 +2,7 @@
 
 Monitor de hardware em C#/.NET 8 para Windows, usando a biblioteca `LibreHardwareMonitorLib`.
 
-Versão atual: `0.4.0`.
+Versão atual: `0.4.1`.
 
 O projeto lê sensores reais do computador, como temperatura da CPU, uso da CPU, potência, clock, temperatura da GPU, temperatura do SSD, uso de memória RAM, velocidade de fan e informações de rede.
 
@@ -285,5 +285,6 @@ dotnet test
 - gráficos em tempo real na interface gráfica;
 - widget/mini painel inspirado no clima da barra de tarefas;
 - distribuição por instalador e possível publicação via `winget`;
+- opção na interface para ativar/desativar inicialização automática com o Windows;
 - modo jogo/overlay leve para acompanhar métricas durante jogos;
 - perfis de exibição para desktop, jogos e diagnóstico técnico.
