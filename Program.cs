@@ -209,7 +209,24 @@ class Program
 
             return;
         }
+        if (args.Contains("--relatorio-tecnico"))
+        {
+            try
+            {
+                ConfigService technicalConfigService = new ConfigService();
+                AppConfig technicalConfig = technicalConfigService.Load();
 
+                TechnicalReportResult result = TechnicalReportService.Create(technicalConfig);
+
+                Console.WriteLine($"Relatório técnico gerado em: {result.ReportPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Não foi possível gerar o relatório técnico: {ex.Message}");
+            }
+
+            return;
+        }
         if (args.Contains("--diagnostico"))
         {
             HardwareMonitorService diagnosticHardwareMonitor = new HardwareMonitorService();
