@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Reflection;
 using System.Security.Principal;
 using System.Windows.Forms;
 
@@ -40,7 +41,7 @@ class HardwareDashboardForm : Form
             Interval = Math.Max(500, config.IntervaloMs)
         };
 
-        Text = "Monitor Hardware";
+        Text = $"Monitor Hardware Versão {GetAppVersion()}";
         AutoScaleMode = AutoScaleMode.Dpi;
         _windowIcon = AppIconService.Load();
         Icon = _windowIcon;
@@ -189,6 +190,7 @@ class HardwareDashboardForm : Form
             ForeColor = Color.FromArgb(210, 214, 220),
             BackColor = BackColor
         };
+
         _startupCheckBox.CheckedChanged += StartupCheckBoxCheckedChanged;
 
         _helpMenu = BuildHelpMenu();
@@ -663,6 +665,23 @@ class HardwareDashboardForm : Form
             : "Temperatura indisponível; execute como administrador";
     }
 
+    private static string GetAppVersion()
+    {
+        string version = Assembly.GetExecutingAssembly()
+                             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                             ?.InformationalVersion
+                         ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+                         ?? "desconhecida";
+
+        int metadataIndex = version.IndexOf('+');
+
+        if (metadataIndex > 0)
+        {
+            version = version[..metadataIndex];
+        }
+
+        return version;
+    }
     private static bool IsRunningAsAdministrator()
     {
         using WindowsIdentity identity = WindowsIdentity.GetCurrent();
