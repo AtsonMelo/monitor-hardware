@@ -7,6 +7,7 @@ using LibreHardwareMonitor.Hardware;
 public class HardwareMonitorService : IDisposable
 {
     private readonly Computer _computer;
+    private readonly HashSet<string> _loggedHardwareUpdateFailures = new(StringComparer.OrdinalIgnoreCase);
     private bool _disposed;
 
     public HardwareMonitorService()
@@ -92,13 +93,35 @@ public class HardwareMonitorService : IDisposable
         return $"{reading.HardwareType}|{reading.HardwareName}|{reading.SensorType}|{reading.SensorName}";
     }
 
+    private bool TryUpdateHardware(IHardware hardware)
+    {
+        try
+        {
+            hardware.Update();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            string hardwareKey = !string.IsNullOrWhiteSpace(hardware.Identifier.ToString())
+                ? hardware.Identifier.ToString()
+                : $"{hardware.HardwareType}:{hardware.Name}";
+
+            if (_loggedHardwareUpdateFailures.Add(hardwareKey))
+            {
+                AppLogService.Error(
+                    ex,
+                    $"Não foi possível atualizar o hardware {hardware.HardwareType}: {hardware.Name}. O app continuará lendo os demais sensores.");
+            }
+
+            return false;
+        }
+    }
+
     private void ReadHardwareRecursive(IHardware hardware, List<SensorReading> sensors)
     {
-        hardware.Update();
-
-        foreach (IHardware subHardware in hardware.SubHardware)
+        if (!TryUpdateHardware(hardware))
         {
-            subHardware.Update();
+            return;
         }
 
         foreach (ISensor sensor in hardware.Sensors)
