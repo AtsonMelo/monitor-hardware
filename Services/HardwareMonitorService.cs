@@ -4,9 +4,10 @@ using System.Linq;
 using System.Threading;
 using LibreHardwareMonitor.Hardware;
 
-public class HardwareMonitorService
+public class HardwareMonitorService : IDisposable
 {
     private readonly Computer _computer;
+    private bool _disposed;
 
     public HardwareMonitorService()
     {
@@ -174,5 +175,16 @@ public class HardwareMonitorService
             .OrderByDescending(s => s.Value)
             .FirstOrDefault()
             ?.Value;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _computer.Close();
+        _disposed = true;
     }
 }
