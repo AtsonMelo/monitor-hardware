@@ -18,6 +18,7 @@ class HardwareDashboardForm : Form
     private Label _updatedAtLabel = null!;
     private Label _statusLabel = null!;
     private Button _updateButton = null!;
+    private Button _errorReportButton = null!;
     private Button _helpButton = null!;
     private CheckBox _startupCheckBox = null!;
     private ContextMenuStrip _helpMenu = null!;
@@ -83,7 +84,7 @@ class HardwareDashboardForm : Form
             BackColor = BackColor
         };
 
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 126));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 154));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
 
@@ -146,6 +147,18 @@ class HardwareDashboardForm : Form
         _updateButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
         _updateButton.Click += async (_, _) => await CheckForUpdatesAsync(showUpToDate: true);
 
+        _errorReportButton = new Button
+        {
+            Text = "Relatório de erros",
+            Width = 220,
+            Height = 30,
+            FlatStyle = FlatStyle.Flat,
+            ForeColor = Color.White,
+            BackColor = Color.FromArgb(36, 41, 47)
+        };
+        _errorReportButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        _errorReportButton.Click += (_, _) => GenerateAndOpenErrorReport();
+
         _helpButton = new Button
         {
             Text = "Ajuda",
@@ -171,6 +184,7 @@ class HardwareDashboardForm : Form
         _helpMenu = BuildHelpMenu();
 
         actionsPanel.Controls.Add(_updateButton);
+        actionsPanel.Controls.Add(_errorReportButton);
         actionsPanel.Controls.Add(_helpButton);
         actionsPanel.Controls.Add(_startupCheckBox);
 
@@ -403,7 +417,11 @@ class HardwareDashboardForm : Form
         ToolStripMenuItem openLogFolderItem = new ToolStripMenuItem("Abrir pasta de logs");
         openLogFolderItem.Click += (_, _) => OpenFolder(Path.GetDirectoryName(AppLogService.LogPath) ?? ".");
 
+        ToolStripMenuItem createReportItem = new ToolStripMenuItem("Gerar relatório de erros");
+        createReportItem.Click += (_, _) => GenerateAndOpenErrorReport();
+
         menu.Items.Add(openSupportItem);
+        menu.Items.Add(createReportItem);
         menu.Items.Add(openLogItem);
         menu.Items.Add(openLogFolderItem);
 
@@ -413,6 +431,43 @@ class HardwareDashboardForm : Form
     private void ShowHelpMenu()
     {
         _helpMenu.Show(_helpButton, new Point(0, _helpButton.Height));
+    }
+
+    private void GenerateAndOpenErrorReport()
+    {
+        try
+        {
+            _errorReportButton.Enabled = false;
+            _errorReportButton.Text = "Coletando...";
+
+            ErrorReportResult result = ErrorReportService.Create(_config);
+            Clipboard.SetText(result.Content);
+
+            DialogResult dialogResult = MessageBox.Show(
+                $"Relatório de erros gerado em:\n{result.ReportPath}\n\nO conteúdo foi copiado para a área de transferência.\n\nDeseja abrir o GitHub para colar e enviar o relatório?",
+                "Relatório de erros",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information);
+
+            if (dialogResult == DialogResult.Yes)
+            {
+                OpenUrl(result.GitHubUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível gerar relatório de erros.");
+            MessageBox.Show(
+                $"Não foi possível gerar o relatório de erros: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            _errorReportButton.Text = "Relatório de erros";
+            _errorReportButton.Enabled = true;
+        }
     }
 
     private static void OpenLogFile()

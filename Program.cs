@@ -19,21 +19,84 @@ class Program
         catch (Exception ex)
         {
             AppLogService.Error(ex, "Falha não tratada na inicialização do app.");
+            ErrorReportResult? errorReport = TryCreateStartupErrorReport(ex);
 
-            if (args.Contains("--gui") || args.Contains("--tray"))
+            if (ShouldShowStartupErrorDialog(args))
             {
-                MessageBox.Show(
-                    $"Não foi possível iniciar o Monitor Hardware.\n\nDetalhes foram salvos em:\n{AppLogService.LogPath}\n\nErro: {ex.Message}",
+                string reportText = errorReport == null
+                    ? $"Log: {AppLogService.LogPath}"
+                    : $"Relatório: {errorReport.ReportPath}\nGitHub: {errorReport.GitHubUrl}";
+
+                DialogResult dialogResult = MessageBox.Show(
+                    $"Não foi possível iniciar o Monitor Hardware.\n\n{reportText}\n\nErro: {ex.Message}\n\nDeseja abrir o GitHub para postar o relatório de erros?",
                     "Monitor Hardware",
-                    MessageBoxButtons.OK,
+                    MessageBoxButtons.YesNo,
                     MessageBoxIcon.Error);
+
+                if (dialogResult == DialogResult.Yes)
+                {
+                    OpenUrl(errorReport?.GitHubUrl ?? ErrorReportService.SupportUrl);
+                }
             }
             else
             {
                 Console.WriteLine($"Erro fatal: {ex.Message}");
                 Console.WriteLine($"Log: {AppLogService.LogPath}");
+
+                if (errorReport != null)
+                {
+                    Console.WriteLine($"Relatório: {errorReport.ReportPath}");
+                    Console.WriteLine($"GitHub: {errorReport.GitHubUrl}");
+                }
             }
         }
+    }
+
+    private static ErrorReportResult? TryCreateStartupErrorReport(Exception exception)
+    {
+        try
+        {
+            ErrorReportResult result = ErrorReportService.Create(exception: exception);
+
+            try
+            {
+                Clipboard.SetText(result.Content);
+            }
+            catch (Exception clipboardException)
+            {
+                AppLogService.Error(clipboardException, "Não foi possível copiar relatório de erro para a área de transferência.");
+            }
+
+            return result;
+        }
+        catch (Exception reportException)
+        {
+            AppLogService.Error(reportException, "Não foi possível gerar relatório de erro de inicialização.");
+            return null;
+        }
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível abrir URL de suporte.");
+        }
+    }
+
+    private static bool ShouldShowStartupErrorDialog(string[] args)
+    {
+        return args.Contains("--gui") ||
+               args.Contains("--tray") ||
+               GetConsoleWindow() == IntPtr.Zero;
     }
 
     private static async Task RunAsync(string[] args)
@@ -408,6 +471,9 @@ class Program
 
     [DllImport("kernel32.dll")]
     private static extern bool AttachConsole(int dwProcessId);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetConsoleWindow();
 
     private const int ATTACH_PARENT_PROCESS = -1;
 }
