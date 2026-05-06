@@ -27,6 +27,23 @@ https://github.com/AtsonMelo/monitor-hardware/releases
 
 Baixe o arquivo `monitor-hardware-vX.Y.Z-win-x64.zip`, extraia para uma pasta e execute `monitor-hardware.exe`.
 
+Para baixar a versão mais recente pelo PowerShell:
+
+```powershell
+$repo = "AtsonMelo/monitor-hardware"
+$release = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest"
+$asset = $release.assets | Where-Object { $_.name -like "*win-x64.zip" } | Select-Object -First 1
+$zipPath = Join-Path $env:USERPROFILE "Downloads\$($asset.name)"
+$installPath = Join-Path $env:USERPROFILE "Documents\MonitorHardware"
+
+Invoke-WebRequest $asset.browser_download_url -OutFile $zipPath
+Unblock-File $zipPath
+Expand-Archive $zipPath -DestinationPath $installPath -Force
+Start-Process (Join-Path $installPath "monitor-hardware.exe") -Verb RunAs
+```
+
+Se já existir uma versão aberta, feche o app pelo menu `Sair` no ícone da bandeja antes de extrair a nova versão.
+
 Para rodar o monitor em modo normal:
 
 ```powershell
@@ -316,6 +333,9 @@ dotnet test
 - gráficos em tempo real na interface gráfica;
 - widget/mini painel inspirado no clima da barra de tarefas;
 - versão Android, provavelmente como app complementar em .NET MAUI consumindo dados do monitor Windows ou de uma API local;
+- edição técnica do app, mostrando como o Windows conversa com o hardware em camadas: sensor físico, firmware, driver, API do Windows, biblioteca de leitura e interface do app;
+- diagnóstico técnico por componente, correlacionando temperatura, uso, potência, fan, memória, disco e rede;
+- monitoramento avançado de rede com bytes, pacotes enviados/recebidos e taxa por adaptador, antes de qualquer captura profunda no estilo Wireshark;
 - distribuição por instalador e possível publicação via `winget`;
 - opção na interface para ativar/desativar inicialização automática com o Windows;
 - modo jogo/overlay leve para acompanhar métricas durante jogos;
