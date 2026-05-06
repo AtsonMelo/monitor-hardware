@@ -368,14 +368,17 @@ class HardwareDashboardForm : Form
             if (result.HasUpdate)
             {
                 DialogResult dialogResult = MessageBox.Show(
-                    $"Existe uma nova versão disponível: {result.LatestVersion}. Versão atual: {result.CurrentVersion}.\n\nDeseja abrir a página de download?",
+                    $"Existe uma nova versão disponível: {result.LatestVersion}. Versão atual: {result.CurrentVersion}.\n\nDeseja baixar e instalar agora?\n\nO Monitor Hardware será fechado e reaberto automaticamente.",
                     "Atualização disponível",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Information);
 
                 if (dialogResult == DialogResult.Yes)
                 {
-                    UpdateService.OpenUrl(result.DownloadUrl ?? result.ReleaseUrl);
+                    Progress<string> progress = new Progress<string>(message => _updateButton.Text = message);
+
+                    await _updateService.StartUpdateAsync(result, progress);
+                    Application.Exit();
                 }
             }
             else if (showUpToDate)
