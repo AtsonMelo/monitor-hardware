@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Security.Principal;
 using System.Windows.Forms;
@@ -17,7 +18,10 @@ class HardwareDashboardForm : Form
     private Label _updatedAtLabel = null!;
     private Label _statusLabel = null!;
     private Button _updateButton = null!;
+    private Button _errorReportButton = null!;
+    private Button _helpButton = null!;
     private CheckBox _startupCheckBox = null!;
+    private ContextMenuStrip _helpMenu = null!;
     private MetricCard _cpuCard = null!;
     private MetricCard _gpuCard = null!;
     private MetricCard _ramCard = null!;
@@ -64,6 +68,7 @@ class HardwareDashboardForm : Form
         FormClosed += (_, _) =>
         {
             _timer.Dispose();
+            _helpMenu.Dispose();
             _windowIcon.Dispose();
         };
     }
@@ -79,7 +84,7 @@ class HardwareDashboardForm : Form
             BackColor = BackColor
         };
 
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 92));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 154));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
 
@@ -142,6 +147,30 @@ class HardwareDashboardForm : Form
         _updateButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
         _updateButton.Click += async (_, _) => await CheckForUpdatesAsync(showUpToDate: true);
 
+        _errorReportButton = new Button
+        {
+            Text = "Relatório de erros",
+            Width = 220,
+            Height = 30,
+            FlatStyle = FlatStyle.Flat,
+            ForeColor = Color.White,
+            BackColor = Color.FromArgb(36, 41, 47)
+        };
+        _errorReportButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        _errorReportButton.Click += (_, _) => GenerateAndOpenErrorReport();
+
+        _helpButton = new Button
+        {
+            Text = "Ajuda",
+            Width = 220,
+            Height = 30,
+            FlatStyle = FlatStyle.Flat,
+            ForeColor = Color.White,
+            BackColor = Color.FromArgb(36, 41, 47)
+        };
+        _helpButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        _helpButton.Click += (_, _) => ShowHelpMenu();
+
         _startupCheckBox = new CheckBox
         {
             Text = "Iniciar com o Windows",
@@ -152,7 +181,11 @@ class HardwareDashboardForm : Form
         };
         _startupCheckBox.CheckedChanged += StartupCheckBoxCheckedChanged;
 
+        _helpMenu = BuildHelpMenu();
+
         actionsPanel.Controls.Add(_updateButton);
+        actionsPanel.Controls.Add(_errorReportButton);
+        actionsPanel.Controls.Add(_helpButton);
         actionsPanel.Controls.Add(_startupCheckBox);
 
         header.Controls.Add(titlePanel, 0, 0);
@@ -368,6 +401,121 @@ class HardwareDashboardForm : Form
         {
             _updateButton.Text = "Verificar atualizações";
             _updateButton.Enabled = true;
+        }
+    }
+
+    private ContextMenuStrip BuildHelpMenu()
+    {
+        ContextMenuStrip menu = new ContextMenuStrip();
+
+        ToolStripMenuItem openSupportItem = new ToolStripMenuItem("Abrir suporte no GitHub");
+        openSupportItem.Click += (_, _) => OpenUrl("https://github.com/AtsonMelo/monitor-hardware/issues/new/choose");
+
+        ToolStripMenuItem openLogItem = new ToolStripMenuItem("Abrir log de erros");
+        openLogItem.Click += (_, _) => OpenLogFile();
+
+        ToolStripMenuItem openLogFolderItem = new ToolStripMenuItem("Abrir pasta de logs");
+        openLogFolderItem.Click += (_, _) => OpenFolder(Path.GetDirectoryName(AppLogService.LogPath) ?? ".");
+
+        ToolStripMenuItem createReportItem = new ToolStripMenuItem("Gerar relatório de erros");
+        createReportItem.Click += (_, _) => GenerateAndOpenErrorReport();
+
+        menu.Items.Add(openSupportItem);
+        menu.Items.Add(createReportItem);
+        menu.Items.Add(openLogItem);
+        menu.Items.Add(openLogFolderItem);
+
+        return menu;
+    }
+
+    private void ShowHelpMenu()
+    {
+        _helpMenu.Show(_helpButton, new Point(0, _helpButton.Height));
+    }
+
+    private void GenerateAndOpenErrorReport()
+    {
+        try
+        {
+            _errorReportButton.Enabled = false;
+            _errorReportButton.Text = "Coletando...";
+
+            ErrorReportResult result = ErrorReportService.Create(_config);
+            Clipboard.SetText(result.Content);
+
+            DialogResult dialogResult = MessageBox.Show(
+                $"Relatório de erros gerado em:\n{result.ReportPath}\n\nO conteúdo foi copiado para a área de transferência.\n\nDeseja abrir o GitHub para colar e enviar o relatório?",
+                "Relatório de erros",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Information);
+
+            if (dialogResult == DialogResult.Yes)
+            {
+                OpenUrl(result.GitHubUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível gerar relatório de erros.");
+            MessageBox.Show(
+                $"Não foi possível gerar o relatório de erros: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            _errorReportButton.Text = "Relatório de erros";
+            _errorReportButton.Enabled = true;
+        }
+    }
+
+    private static void OpenLogFile()
+    {
+        string logPath = AppLogService.LogPath;
+        string? logDirectory = Path.GetDirectoryName(logPath);
+
+        if (!string.IsNullOrWhiteSpace(logDirectory))
+        {
+            Directory.CreateDirectory(logDirectory);
+        }
+
+        if (!File.Exists(logPath))
+        {
+            File.WriteAllText(logPath, "Nenhum erro registrado ate agora." + Environment.NewLine);
+        }
+
+        OpenFile(logPath);
+    }
+
+    private static void OpenFolder(string folderPath)
+    {
+        Directory.CreateDirectory(folderPath);
+        OpenFile(Path.GetFullPath(folderPath));
+    }
+
+    private static void OpenUrl(string url)
+    {
+        OpenFile(url);
+    }
+
+    private static void OpenFile(string pathOrUrl)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = pathOrUrl,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Não foi possível abrir o recurso solicitado: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
     }
 
