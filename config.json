@@ -8,5 +8,6 @@
   "Mode": "resumo",
   "CpuFanSensorName": "Fan #2",
   "TemperatureUnit": "C",
-  "ShowTemperatureUnitInTrayIcon": false
+  "ShowTemperatureUnitInTrayIcon": false,
+  "EnableAutoUpdateCheck": true
 }

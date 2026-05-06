@@ -12,6 +12,9 @@ class TrayIconService : IDisposable
     private readonly ContextMenuStrip _menu;
     private readonly Icon _baseIcon;
     private readonly bool _ownsDashboardForm;
+    private readonly UpdateService _updateService = new UpdateService();
+    private readonly StartupTaskService _startupTaskService = new StartupTaskService();
+    private readonly ToolStripMenuItem _startupItem;
     private Icon? _currentIcon;
     private HardwareDashboardForm? _dashboardForm;
 
@@ -33,6 +36,12 @@ class TrayIconService : IDisposable
         ToolStripMenuItem openLogsItem = new ToolStripMenuItem("Abrir pasta de logs");
         openLogsItem.Click += (_, _) => OpenFolder("logs");
 
+        ToolStripMenuItem checkUpdatesItem = new ToolStripMenuItem("Verificar atualizações");
+        checkUpdatesItem.Click += async (_, _) => await CheckForUpdatesAsync(showUpToDate: true);
+
+        _startupItem = new ToolStripMenuItem("Iniciar com o Windows");
+        _startupItem.Click += (_, _) => ToggleStartup();
+
         ToolStripMenuItem exitItem = new ToolStripMenuItem("Sair");
         exitItem.Click += (_, _) =>
         {
@@ -43,6 +52,8 @@ class TrayIconService : IDisposable
         _menu.Items.Add(openDashboardItem);
         _menu.Items.Add(openReportItem);
         _menu.Items.Add(openLogsItem);
+        _menu.Items.Add(checkUpdatesItem);
+        _menu.Items.Add(_startupItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(exitItem);
 
@@ -57,6 +68,7 @@ class TrayIconService : IDisposable
         {
             if (eventArgs.Button == MouseButtons.Right)
             {
+                RefreshStartupMenuState();
                 _menu.Show(Cursor.Position);
             }
             else if (eventArgs.Button == MouseButtons.Left)
@@ -64,6 +76,13 @@ class TrayIconService : IDisposable
                 OpenDashboard();
             }
         };
+
+        RefreshStartupMenuState();
+
+        if (_ownsDashboardForm && _config.EnableAutoUpdateCheck)
+        {
+            _ = CheckForUpdatesAsync(showUpToDate: false);
+        }
     }
 
     public void UpdateTooltip(MonitorSnapshot snapshot)
@@ -253,6 +272,70 @@ class TrayIconService : IDisposable
 
         _dashboardForm = new HardwareDashboardForm(_config);
         _dashboardForm.Show();
+    }
+
+    private async Task CheckForUpdatesAsync(bool showUpToDate)
+    {
+        try
+        {
+            UpdateCheckResult result = await _updateService.CheckForUpdatesAsync();
+
+            if (result.HasUpdate)
+            {
+                DialogResult dialogResult = MessageBox.Show(
+                    $"Existe uma nova versão disponível: {result.LatestVersion}. Versão atual: {result.CurrentVersion}.\n\nDeseja abrir a página de download?",
+                    "Atualização disponível",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information);
+
+                if (dialogResult == DialogResult.Yes)
+                {
+                    UpdateService.OpenUrl(result.DownloadUrl ?? result.ReleaseUrl);
+                }
+            }
+            else if (showUpToDate)
+            {
+                MessageBox.Show(
+                    $"Você já está usando a versão mais recente: {result.CurrentVersion}.",
+                    "Monitor Hardware",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (showUpToDate)
+            {
+                MessageBox.Show(
+                    $"Não foi possível verificar atualizações: {ex.Message}",
+                    "Monitor Hardware",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+    }
+
+    private void ToggleStartup()
+    {
+        try
+        {
+            bool enabled = !_startupTaskService.IsEnabled();
+            _startupTaskService.SetEnabled(enabled);
+            _startupItem.Checked = enabled;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Não foi possível alterar a inicialização automática: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+    }
+
+    private void RefreshStartupMenuState()
+    {
+        _startupItem.Checked = _startupTaskService.IsEnabled();
     }
 
     private static void OpenReport()
