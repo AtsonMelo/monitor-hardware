@@ -127,6 +127,27 @@ Se o app baixado não abrir:
 
 O app registra erros de inicialização nesse arquivo para facilitar diagnóstico em outras máquinas.
 
+## Suporte e envio de logs
+
+Para reportar erro, enviar log, sugerir melhoria ou deixar comentário, use a área de Issues do GitHub:
+
+```text
+https://github.com/AtsonMelo/monitor-hardware/issues/new/choose
+```
+
+O repositório possui formulários específicos para:
+
+- erro no app;
+- envio de log para análise;
+- sugestão de melhoria;
+- pergunta ou comentário.
+
+Veja também:
+
+```text
+docs/suporte.md
+```
+
 ## Relatório HTML
 
 O projeto pode gerar um relatório HTML consolidando todos os CSVs encontrados na pasta `logs/`.

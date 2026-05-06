@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Baixar a versao mais recente
+    url: https://github.com/AtsonMelo/monitor-hardware/releases/latest
+    about: Use este link para baixar a ultima versao publicada antes de abrir um chamado.
+  - name: Codigo-fonte do projeto
+    url: https://github.com/AtsonMelo/monitor-hardware
+    about: Acesse o repositorio principal do Monitor Hardware.

@@ -1,0 +1,95 @@
+name: Erro no app
+description: Reporte uma falha, travamento ou comportamento inesperado.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por ajudar a melhorar o Monitor Hardware.
+        Antes de enviar, verifique se voce esta usando a versao mais recente publicada em Releases.
+
+  - type: input
+    id: version
+    attributes:
+      label: Versao do app
+      description: Exemplo: 0.5.1.
+      placeholder: "0.5.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Modo usado
+      options:
+        - Interface grafica
+        - Bandeja do Windows
+        - Console/resumo
+        - Console/detalhado
+        - Relatorio HTML
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o erro com o maximo de contexto possivel.
+      placeholder: "Ao abrir o app, a janela aparece e fecha..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
+      description: Liste os passos que levam ao erro.
+      placeholder: |
+        1. Baixei a versao...
+        2. Extraí o ZIP...
+        3. Executei como administrador...
+        4. O erro aconteceu...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Resultado esperado
+      placeholder: "O app deveria abrir o painel grafico e mostrar CPU/GPU/RAM/SSD."
+
+  - type: input
+    id: windows
+    attributes:
+      label: Versao do Windows
+      placeholder: "Windows 11 24H2 / Windows 11 Insider Preview / Windows 10"
+    validations:
+      required: true
+
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware principal
+      description: Informe CPU, GPU, placa-mae, SSD/HD e notebook/desktop, se souber.
+      placeholder: |
+        CPU:
+        GPU:
+        Placa-mae:
+        SSD/HD:
+        Notebook ou desktop:
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs ou mensagens de erro
+      description: Cole aqui o conteudo relevante de %LOCALAPPDATA%\MonitorHardware\logs\app.log. Remova informacoes pessoais se aparecerem.
+      render: text
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Prints ou evidencias
+      description: Arraste imagens aqui se isso ajudar a entender o problema.

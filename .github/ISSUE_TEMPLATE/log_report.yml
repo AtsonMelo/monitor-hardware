@@ -1,0 +1,58 @@
+name: Enviar log para analise
+description: Envie logs do app para investigacao tecnica.
+title: "[Log]: "
+labels:
+  - log
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use este formulario quando o app nao abrir, fechar sozinho ou registrar erro no arquivo de log.
+        Caminho do log: `%LOCALAPPDATA%\MonitorHardware\logs\app.log`
+
+  - type: input
+    id: version
+    attributes:
+      label: Versao do app
+      placeholder: "0.5.1"
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: Como o app foi obtido?
+      placeholder: "GitHub Release, publish local, atalho criado por script..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: execution
+    attributes:
+      label: Como foi executado?
+      options:
+        - Clique duplo no .exe
+        - Atalho da area de trabalho
+        - Inicializacao com Windows
+        - PowerShell
+        - VS Code
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Conteudo do app.log
+      description: Cole somente o trecho relevante. Apague caminhos, nomes de usuario ou dados pessoais se quiser.
+      render: text
+      placeholder: "Cole aqui o erro registrado..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Observacoes adicionais
+      placeholder: "O erro acontece apenas no notebook, apenas sem administrador, apenas ao iniciar com Windows..."

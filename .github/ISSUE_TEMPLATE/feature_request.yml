@@ -1,0 +1,43 @@
+name: Sugestao de melhoria
+description: Sugira uma nova funcionalidade, ajuste visual ou melhoria tecnica.
+title: "[Sugestao]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Qual melhoria voce sugere?
+      placeholder: "Exemplo: mostrar grafico de temperatura da CPU em tempo real..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Por que isso seria util?
+      placeholder: "Explique o problema ou necessidade que essa melhoria resolve."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area relacionada
+      options:
+        - Interface grafica
+        - Icone na bandeja
+        - Sensores de hardware
+        - Rede
+        - Relatorios/logs
+        - Atualizacoes
+        - Android
+        - Outro
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Referencias, prints ou exemplos
+      description: Se existir uma imagem, app ou comportamento parecido, descreva ou anexe aqui.

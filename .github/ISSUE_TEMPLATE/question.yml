@@ -1,0 +1,25 @@
+name: Pergunta ou comentario
+description: Envie uma duvida, comentario geral ou feedback de uso.
+title: "[Feedback]: "
+labels:
+  - feedback
+body:
+  - type: textarea
+    id: message
+    attributes:
+      label: Mensagem
+      placeholder: "Conte sua duvida, comentario ou experiencia usando o app."
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versao do app, se aplicavel
+      placeholder: "0.5.1"
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto adicional
+      placeholder: "Hardware, Windows, modo usado, prints ou observacoes."
