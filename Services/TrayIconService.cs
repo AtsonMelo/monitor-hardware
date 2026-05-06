@@ -9,6 +9,7 @@ class TrayIconService : IDisposable
 {
     private readonly AppConfig _config;
     private readonly NotifyIcon _notifyIcon;
+    private readonly ContextMenuStrip _menu;
     private readonly Icon _baseIcon;
     private readonly bool _ownsDashboardForm;
     private Icon? _currentIcon;
@@ -21,7 +22,7 @@ class TrayIconService : IDisposable
         _ownsDashboardForm = dashboardForm == null;
         _baseIcon = AppIconService.Load();
 
-        ContextMenuStrip menu = new ContextMenuStrip();
+        _menu = new ContextMenuStrip();
 
         ToolStripMenuItem openDashboardItem = new ToolStripMenuItem("Abrir painel");
         openDashboardItem.Click += (_, _) => OpenDashboard();
@@ -39,18 +40,29 @@ class TrayIconService : IDisposable
             Application.Exit();
         };
 
-        menu.Items.Add(openDashboardItem);
-        menu.Items.Add(openReportItem);
-        menu.Items.Add(openLogsItem);
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(exitItem);
+        _menu.Items.Add(openDashboardItem);
+        _menu.Items.Add(openReportItem);
+        _menu.Items.Add(openLogsItem);
+        _menu.Items.Add(new ToolStripSeparator());
+        _menu.Items.Add(exitItem);
 
         _notifyIcon = new NotifyIcon
         {
             Icon = _baseIcon,
             Text = "Monitor Hardware",
-            ContextMenuStrip = menu,
             Visible = true
+        };
+
+        _notifyIcon.MouseUp += (_, eventArgs) =>
+        {
+            if (eventArgs.Button == MouseButtons.Right)
+            {
+                _menu.Show(Cursor.Position);
+            }
+            else if (eventArgs.Button == MouseButtons.Left)
+            {
+                OpenDashboard();
+            }
         };
     }
 
@@ -224,6 +236,7 @@ class TrayIconService : IDisposable
         }
 
         _notifyIcon.Dispose();
+        _menu.Dispose();
         _baseIcon.Dispose();
         _currentIcon?.Dispose();
     }
