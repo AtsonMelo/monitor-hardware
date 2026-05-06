@@ -159,38 +159,125 @@ public class UpdateService
     }
 
     private static string BuildInstallerScript(
-        int currentProcessId,
-        string appDirectory,
-        string payloadDirectory,
-        string restartExecutablePath)
+    int currentProcessId,
+    string appDirectory,
+    string payloadDirectory,
+    string restartExecutablePath)
     {
+        string updateLogPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MonitorHardware",
+            "logs",
+            "update-installer.log");
+
         string escapedAppDirectory = EscapePowerShellString(appDirectory);
         string escapedPayloadDirectory = EscapePowerShellString(payloadDirectory);
         string escapedRestartExecutablePath = EscapePowerShellString(restartExecutablePath);
+        string escapedUpdateLogPath = EscapePowerShellString(updateLogPath);
 
         return $$"""
-        $ErrorActionPreference = 'Stop'
+    $ErrorActionPreference = 'Stop'
 
-        $processId = {{currentProcessId}}
-        $appDirectory = '{{escapedAppDirectory}}'
-        $payloadDirectory = '{{escapedPayloadDirectory}}'
-        $restartExecutablePath = '{{escapedRestartExecutablePath}}'
-        $excludedNames = @('config.json', 'logs')
+    $targetProcessId = {{currentProcessId}}
+    $appDirectory = '{{escapedAppDirectory}}'
+    $payloadDirectory = '{{escapedPayloadDirectory}}'
+    $restartExecutablePath = '{{escapedRestartExecutablePath}}'
+    $updateLogPath = '{{escapedUpdateLogPath}}'
+    $excludedNames = @('config.json', 'logs', 'updates')
+    $maxCopyAttempts = 10
 
-        try {
-            Wait-Process -Id $processId -Timeout 45 -ErrorAction SilentlyContinue
-        } catch {
+    function Write-UpdateLog {
+        param([string]$Message)
+
+        $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+        Add-Content -LiteralPath $updateLogPath -Value "[$timestamp] $Message"
+    }
+
+    function Copy-WithRetry {
+        param(
+            [string]$Source,
+            [string]$Destination
+        )
+
+        for ($attempt = 1; $attempt -le $maxCopyAttempts; $attempt++) {
+            try {
+                Copy-Item -LiteralPath $Source -Destination $Destination -Recurse -Force -ErrorAction Stop
+                Write-UpdateLog "Copiado: $Source -> $Destination"
+                return
+            } catch {
+                Write-UpdateLog "Falha ao copiar tentativa $attempt/$maxCopyAttempts: $Source -> $Destination | $($_.Exception.Message)"
+                Start-Sleep -Milliseconds 800
+            }
+        }
+
+        throw "Nao foi possivel copiar '$Source' para '$Destination' apos $maxCopyAttempts tentativas."
+    }
+
+    try {
+        New-Item -ItemType Directory -Path (Split-Path -Path $updateLogPath -Parent) -Force | Out-Null
+
+        Write-UpdateLog "==== Iniciando aplicacao de atualizacao ===="
+        Write-UpdateLog "PID alvo: $targetProcessId"
+        Write-UpdateLog "AppDirectory: $appDirectory"
+        Write-UpdateLog "PayloadDirectory: $payloadDirectory"
+        Write-UpdateLog "RestartExecutablePath: $restartExecutablePath"
+
+        if (!(Test-Path -LiteralPath $payloadDirectory)) {
+            throw "Payload nao encontrado: $payloadDirectory"
+        }
+
+        if (!(Test-Path -LiteralPath $appDirectory)) {
+            New-Item -ItemType Directory -Path $appDirectory -Force | Out-Null
+            Write-UpdateLog "Pasta do aplicativo criada: $appDirectory"
+        }
+
+        $targetProcess = Get-Process -Id $targetProcessId -ErrorAction SilentlyContinue
+
+        if ($targetProcess) {
+            Write-UpdateLog "Aguardando encerramento do processo alvo..."
+            Wait-Process -Id $targetProcessId -Timeout 20 -ErrorAction SilentlyContinue
+        }
+
+        $targetProcess = Get-Process -Id $targetProcessId -ErrorAction SilentlyContinue
+
+        if ($targetProcess) {
+            Write-UpdateLog "Processo alvo ainda ativo. Forcando encerramento..."
+            Stop-Process -Id $targetProcessId -Force -ErrorAction Stop
+            Start-Sleep -Seconds 2
+        }
+
+        Get-Process monitor-hardware -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Path -and
+            ([System.IO.Path]::GetFullPath($_.Path).TrimEnd('\') -ieq [System.IO.Path]::GetFullPath($restartExecutablePath).TrimEnd('\'))
+        } |
+        ForEach-Object {
+            Write-UpdateLog "Finalizando instancia extra do Monitor Hardware: PID $($_.Id)"
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
         }
 
         Get-ChildItem -LiteralPath $payloadDirectory -Force | ForEach-Object {
             if ($excludedNames -notcontains $_.Name) {
                 $destination = Join-Path -Path $appDirectory -ChildPath $_.Name
-                Copy-Item -LiteralPath $_.FullName -Destination $destination -Recurse -Force
+                Copy-WithRetry -Source $_.FullName -Destination $destination
+            } else {
+                Write-UpdateLog "Preservado ou ignorado: $($_.Name)"
             }
         }
 
+        $version = (Get-Item -LiteralPath $restartExecutablePath).VersionInfo.ProductVersion
+        Write-UpdateLog "Atualizacao aplicada. Versao do executavel: $version"
+
+        Write-UpdateLog "Reabrindo aplicativo..."
         Start-Process -FilePath $restartExecutablePath -ArgumentList '--gui'
-        """;
+
+        Write-UpdateLog "==== Atualizacao finalizada ===="
+    } catch {
+        Write-UpdateLog "ERRO: $($_.Exception.ToString())"
+        Start-Process -FilePath "notepad.exe" -ArgumentList @($updateLogPath)
+        exit 1
+    }
+    """;
     }
 
     private static string EscapePowerShellString(string value)
