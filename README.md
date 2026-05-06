@@ -2,6 +2,8 @@
 
 Monitor de hardware em C#/.NET 8 para Windows, usando a biblioteca `LibreHardwareMonitorLib`.
 
+Versão atual: `0.4.0`.
+
 O projeto lê sensores reais do computador, como temperatura da CPU, uso da CPU, potência, clock, temperatura da GPU, temperatura do SSD, uso de memória RAM, velocidade de fan e informações de rede.
 
 ## Objetivo
@@ -56,7 +58,7 @@ Para abrir uma interface gráfica simples, sem depender do painel do terminal pa
 dotnet run -- --gui
 ```
 
-Esse modo abre uma janela própria do Windows com cards de CPU, GPU, RAM e SSD. As leituras continuam usando os sensores reais detectados pela `LibreHardwareMonitorLib`.
+Esse modo abre uma janela própria do Windows com cards de CPU, GPU, RAM e SSD. A GPU mostra temperatura, uso, potência e fan; a RAM mostra percentual, memória usada, disponível e total. As leituras continuam usando os sensores reais detectados pela `LibreHardwareMonitorLib`.
 
 No modo bandeja, o menu do ícone também possui a opção `Abrir painel`, que abre a mesma interface gráfica.
 
@@ -77,6 +79,24 @@ Para publicar o app e criar um atalho na Área de Trabalho apontando para o modo
 ```
 
 O script executa `dotnet publish` e cria o atalho `Monitor Hardware.lnk`. Ao abrir o atalho, o app inicia em modo gráfico e também mostra o ícone na bandeja.
+
+## Inicialização com o Windows
+
+Para iniciar o Monitor Hardware automaticamente quando o usuário entrar no Windows, execute em um PowerShell aberto como administrador:
+
+```powershell
+.\scripts\instalar-inicializacao.ps1
+```
+
+Esse script publica o app e cria uma tarefa no Agendador de Tarefas do Windows com privilégios elevados. Isso é necessário porque algumas leituras físicas, como temperatura da CPU, podem exigir administrador.
+
+Para remover a inicialização automática:
+
+```powershell
+.\scripts\remover-inicializacao.ps1
+```
+
+Observação: apps com interface gráfica aparecem após o login do usuário. Antes do login, ainda não existe uma área de trabalho interativa para mostrar janela ou ícone na bandeja.
 
 ## Relatório HTML
 
@@ -257,3 +277,13 @@ Para rodar os testes automatizados:
 ```powershell
 dotnet test
 ```
+
+## Ideias futuras
+
+- Atualizações automáticas ou assistidas usando GitHub Releases;
+- ícones específicos para fans/coolers, com estado visual por rotação/alerta;
+- gráficos em tempo real na interface gráfica;
+- widget/mini painel inspirado no clima da barra de tarefas;
+- distribuição por instalador e possível publicação via `winget`;
+- modo jogo/overlay leve para acompanhar métricas durante jogos;
+- perfis de exibição para desktop, jogos e diagnóstico técnico.

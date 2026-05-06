@@ -171,12 +171,12 @@ class HardwareDashboardForm : Form
 
         _gpuCard.SetValues(
             FormatTemperature(snapshot.GpuTemp),
-            $"Uso {FormatPercent(snapshot.GpuUso)} | Potência {FormatPower(snapshot.GpuPower)}",
+            $"Uso {FormatPercent(snapshot.GpuUso)} | Potência {FormatPower(snapshot.GpuPower)} | Fan {FormatFan(snapshot.GpuFan)}",
             GetTemperatureColor(snapshot.GpuTemp, _config.GpuTempMax));
 
         _ramCard.SetValues(
-            FormatPercent(snapshot.RamUso),
-            "Uso da memória física",
+            GetRamPrimaryText(snapshot),
+            GetRamSecondaryText(snapshot),
             GetLoadColor(snapshot.RamUso));
 
         _ssdCard.SetValues(
@@ -206,6 +206,25 @@ class HardwareDashboardForm : Form
         return snapshot.CpuTemp.HasValue
             ? GetTemperatureColor(snapshot.CpuTemp, _config.CpuTempMax)
             : GetLoadColor(snapshot.CpuUso);
+    }
+
+    private static string GetRamPrimaryText(MonitorSnapshot snapshot)
+    {
+        return snapshot.RamUsadaGb.HasValue && snapshot.RamTotalGb.HasValue
+            ? $"{FormatMemoryNumber(snapshot.RamUsadaGb)}/{FormatMemory(snapshot.RamTotalGb)}"
+            : FormatPercent(snapshot.RamUso);
+    }
+
+    private static string GetRamSecondaryText(MonitorSnapshot snapshot)
+    {
+        string usageText = $"Uso {FormatPercent(snapshot.RamUso)}";
+
+        if (snapshot.RamDisponivelGb.HasValue)
+        {
+            usageText += $" | Disponível {FormatMemory(snapshot.RamDisponivelGb)}";
+        }
+
+        return usageText;
     }
 
     private string GetStatusText(MonitorSnapshot snapshot)
@@ -281,6 +300,20 @@ class HardwareDashboardForm : Form
         return value.HasValue
             ? $"{value.Value:0} RPM"
             : "-- RPM";
+    }
+
+    private static string FormatMemory(float? value)
+    {
+        return value.HasValue
+            ? $"{value.Value:0.0} GB"
+            : "-- GB";
+    }
+
+    private static string FormatMemoryNumber(float? value)
+    {
+        return value.HasValue
+            ? $"{value.Value:0.0}"
+            : "--";
     }
 
     private static string GetCpuTemperatureUnavailableText()

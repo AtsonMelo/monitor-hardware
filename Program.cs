@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -14,6 +15,7 @@ class Program
         Console.WriteLine("Monitor de Hardware");
         if (args.Contains("--gui"))
         {
+            HideConsoleWindow();
             ApplicationConfiguration.Initialize();
 
             ConfigService guiConfigService = new ConfigService();
@@ -36,6 +38,7 @@ class Program
 
         if (args.Contains("--tray"))
         {
+            HideConsoleWindow();
             ApplicationConfiguration.Initialize();
 
             ConfigService trayConfigService = new ConfigService();
@@ -344,5 +347,23 @@ class Program
             ? "=== Monitor de Hardware - Detalhado ==="
             : "=== Monitor de Hardware - Resumo ===";
     }
+
+    private static void HideConsoleWindow()
+    {
+        IntPtr consoleWindow = GetConsoleWindow();
+
+        if (consoleWindow != IntPtr.Zero)
+        {
+            ShowWindow(consoleWindow, SW_HIDE);
+        }
+    }
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetConsoleWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private const int SW_HIDE = 0;
 }
 

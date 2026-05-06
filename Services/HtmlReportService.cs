@@ -78,7 +78,7 @@ public class HtmlReportService
             return null;
         }
 
-        return new MonitorLogEntry
+        MonitorLogEntry entry = new MonitorLogEntry
         {
             SourceFile = sourceFile,
             Timestamp = timestamp,
@@ -88,10 +88,25 @@ public class HtmlReportService
             CpuFan = ParseOptionalFloat(columns[4]),
             GpuTemp = ParseOptionalFloat(columns[5]),
             GpuUso = ParseOptionalFloat(columns[6]),
-            GpuPower = ParseOptionalFloat(columns[7]),
-            SsdTemp = ParseOptionalFloat(columns[8]),
-            RamUso = ParseOptionalFloat(columns[9])
+            GpuPower = ParseOptionalFloat(columns[7])
         };
+
+        if (columns.Length >= 14)
+        {
+            entry.GpuFan = ParseOptionalFloat(columns[8]);
+            entry.SsdTemp = ParseOptionalFloat(columns[9]);
+            entry.RamUso = ParseOptionalFloat(columns[10]);
+            entry.RamUsadaGb = ParseOptionalFloat(columns[11]);
+            entry.RamDisponivelGb = ParseOptionalFloat(columns[12]);
+            entry.RamTotalGb = ParseOptionalFloat(columns[13]);
+        }
+        else
+        {
+            entry.SsdTemp = ParseOptionalFloat(columns[8]);
+            entry.RamUso = ParseOptionalFloat(columns[9]);
+        }
+
+        return entry;
     }
 
     private static float? ParseOptionalFloat(string value)
@@ -403,8 +418,10 @@ public class HtmlReportService
         html.AppendLine(BuildMetricTile("CPU uso", FormatPercent(Last(entries, entry => entry.CpuUso)), BuildSummary(entries, entry => entry.CpuUso, "Máx", "Média", FormatPercent), BuildSparkline(entries, entry => entry.CpuUso, "#73a7ff", 100), "#73a7ff"));
         html.AppendLine(BuildMetricTile("GPU temperatura", FormatCelsius(Last(entries, entry => entry.GpuTemp)), BuildSummary(entries, entry => entry.GpuTemp, "Máx", "Média", FormatCelsius), BuildSparkline(entries, entry => entry.GpuTemp, "#ff3b62", 100), "#ff3b62"));
         html.AppendLine(BuildMetricTile("GPU uso", FormatPercent(Last(entries, entry => entry.GpuUso)), BuildSummary(entries, entry => entry.GpuUso, "Máx", "Média", FormatPercent), BuildSparkline(entries, entry => entry.GpuUso, "#ff7a30", 100), "#ff7a30"));
+        html.AppendLine(BuildMetricTile("Fan GPU", FormatRpm(Last(entries, entry => entry.GpuFan)), BuildSummary(entries, entry => entry.GpuFan, "Máx", "Média", FormatRpm), BuildSparkline(entries, entry => entry.GpuFan, "#ff6bd6"), "#ff6bd6"));
         html.AppendLine(BuildMetricTile("SSD temperatura", FormatCelsius(Last(entries, entry => entry.SsdTemp)), BuildSummary(entries, entry => entry.SsdTemp, "Máx", "Média", FormatCelsius), BuildSparkline(entries, entry => entry.SsdTemp, "#ffbf47", 80), "#ffbf47"));
         html.AppendLine(BuildMetricTile("RAM uso", FormatPercent(Last(entries, entry => entry.RamUso)), BuildSummary(entries, entry => entry.RamUso, "Máx", "Média", FormatPercent), BuildSparkline(entries, entry => entry.RamUso, "#33c7ff", 100), "#33c7ff"));
+        html.AppendLine(BuildMetricTile("RAM usada", FormatGigabytes(Last(entries, entry => entry.RamUsadaGb)), BuildSummary(entries, entry => entry.RamUsadaGb, "Máx", "Média", FormatGigabytes), BuildSparkline(entries, entry => entry.RamUsadaGb, "#2dd4bf"), "#2dd4bf"));
         html.AppendLine(BuildMetricTile("Fan CPU provável", FormatRpm(Last(entries, entry => entry.CpuFan)), BuildSummary(entries, entry => entry.CpuFan, "Máx", "Média", FormatRpm), BuildSparkline(entries, entry => entry.CpuFan, "#b990ff"), "#b990ff"));
         html.AppendLine(BuildMetricTile("Potência CPU", FormatWatts(Last(entries, entry => entry.CpuPower)), BuildSummary(entries, entry => entry.CpuPower, "Máx", "Média", FormatWatts), BuildSparkline(entries, entry => entry.CpuPower, "#f87171"), "#f87171"));
         html.AppendLine("      </div>");
@@ -425,8 +442,10 @@ public class HtmlReportService
         html.AppendLine(BuildChartPanel("CPU uso", "CPU_Uso_Percent", entries, entry => entry.CpuUso, "%", "#73a7ff", 100));
         html.AppendLine(BuildChartPanel("GPU temperatura", "GPU_Temp_C", entries, entry => entry.GpuTemp, "°C", "#ff3b62", 100));
         html.AppendLine(BuildChartPanel("GPU uso", "GPU_Uso_Percent", entries, entry => entry.GpuUso, "%", "#ff7a30", 100));
+        html.AppendLine(BuildChartPanel("Fan GPU", "GPU_Fan_RPM", entries, entry => entry.GpuFan, "RPM", "#ff6bd6"));
         html.AppendLine(BuildChartPanel("SSD temperatura", "SSD_Temp_C", entries, entry => entry.SsdTemp, "°C", "#ffbf47", 80));
         html.AppendLine(BuildChartPanel("RAM uso", "RAM_Uso_Percent", entries, entry => entry.RamUso, "%", "#33c7ff", 100));
+        html.AppendLine(BuildChartPanel("RAM usada", "RAM_Usada_GB", entries, entry => entry.RamUsadaGb, "GB", "#2dd4bf"));
         html.AppendLine(BuildChartPanel("Fan CPU provável", "CPU_Fan_RPM", entries, entry => entry.CpuFan, "RPM", "#b990ff"));
         html.AppendLine(BuildChartPanel("Potência CPU", "CPU_Power_W", entries, entry => entry.CpuPower, "W", "#f87171"));
         html.AppendLine("      </div>");
@@ -455,8 +474,12 @@ public class HtmlReportService
         html.AppendLine("              <th>GPU °C</th>");
         html.AppendLine("              <th>GPU %</th>");
         html.AppendLine("              <th>GPU W</th>");
+        html.AppendLine("              <th>GPU Fan</th>");
         html.AppendLine("              <th>SSD °C</th>");
         html.AppendLine("              <th>RAM %</th>");
+        html.AppendLine("              <th>RAM usada</th>");
+        html.AppendLine("              <th>RAM disponível</th>");
+        html.AppendLine("              <th>RAM total</th>");
         html.AppendLine("            </tr>");
         html.AppendLine("          </thead>");
         html.AppendLine("          <tbody>");
@@ -473,8 +496,12 @@ public class HtmlReportService
             html.AppendLine($"              <td>{FormatNumber(entry.GpuTemp)}</td>");
             html.AppendLine($"              <td>{FormatNumber(entry.GpuUso)}</td>");
             html.AppendLine($"              <td>{FormatNumber(entry.GpuPower)}</td>");
+            html.AppendLine($"              <td>{FormatNumber(entry.GpuFan)}</td>");
             html.AppendLine($"              <td>{FormatNumber(entry.SsdTemp)}</td>");
             html.AppendLine($"              <td>{FormatNumber(entry.RamUso)}</td>");
+            html.AppendLine($"              <td>{FormatNumber(entry.RamUsadaGb)}</td>");
+            html.AppendLine($"              <td>{FormatNumber(entry.RamDisponivelGb)}</td>");
+            html.AppendLine($"              <td>{FormatNumber(entry.RamTotalGb)}</td>");
             html.AppendLine("            </tr>");
         }
 
@@ -680,6 +707,11 @@ public class HtmlReportService
         return value.HasValue ? $"{FormatNumber(value)} RPM" : "sem dados";
     }
 
+    private static string FormatGigabytes(float? value)
+    {
+        return value.HasValue ? $"{FormatNumber(value)} GB" : "sem dados";
+    }
+
     private static string FormatValue(float? value, string unit)
     {
         return value.HasValue ? $"{FormatNumber(value)} {unit}" : "sem dados";
@@ -728,7 +760,11 @@ public class HtmlReportService
         public float? GpuTemp { get; set; }
         public float? GpuUso { get; set; }
         public float? GpuPower { get; set; }
+        public float? GpuFan { get; set; }
         public float? SsdTemp { get; set; }
         public float? RamUso { get; set; }
+        public float? RamUsadaGb { get; set; }
+        public float? RamDisponivelGb { get; set; }
+        public float? RamTotalGb { get; set; }
     }
 }
