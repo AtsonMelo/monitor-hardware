@@ -67,7 +67,8 @@ public class HardwareMonitorService
             .FirstOrDefault(s =>
                 s.HardwareType == hardwareType &&
                 s.SensorType == sensorType &&
-                s.SensorName.Equals(sensorName, StringComparison.OrdinalIgnoreCase))
+                s.SensorName.Equals(sensorName, StringComparison.OrdinalIgnoreCase) &&
+                s.Value != null)
             ?.Value;
     }
 

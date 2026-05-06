@@ -48,6 +48,24 @@ dotnet run -- --tray
 
 O ícone mostra um tooltip com CPU/GPU/RAM em tempo real e possui menu para abrir a pasta de logs ou sair do app.
 
+## Modo gráfico
+
+Para abrir uma interface gráfica simples, sem depender do painel do terminal para visualizar as métricas:
+
+```powershell
+dotnet run -- --gui
+```
+
+Esse modo abre uma janela própria do Windows com cards de CPU, GPU, RAM e SSD. As leituras continuam usando os sensores reais detectados pela `LibreHardwareMonitorLib`.
+
+No modo bandeja, o menu do ícone também possui a opção `Abrir painel`, que abre a mesma interface gráfica.
+
+## Execução como administrador
+
+Algumas leituras físicas, principalmente temperatura da CPU, podem exigir privilégios de administrador no Windows. O executável usa `app.manifest` com `requireAdministrator`, então o Windows solicita elevação via UAC ao abrir o app.
+
+Durante o desenvolvimento, se a temperatura da CPU aparecer como indisponível, abra o PowerShell ou o VS Code como administrador e execute novamente.
+
 ## Relatório HTML
 
 O projeto pode gerar um relatório HTML consolidando todos os CSVs encontrados na pasta `logs/`.

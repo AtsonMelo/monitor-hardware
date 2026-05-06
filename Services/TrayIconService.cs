@@ -10,12 +10,16 @@ class TrayIconService : IDisposable
     private readonly AppConfig _config;
     private readonly NotifyIcon _notifyIcon;
     private Icon? _currentIcon;
+    private HardwareDashboardForm? _dashboardForm;
 
     public TrayIconService(AppConfig config)
     {
         _config = config;
 
         ContextMenuStrip menu = new ContextMenuStrip();
+
+        ToolStripMenuItem openDashboardItem = new ToolStripMenuItem("Abrir painel");
+        openDashboardItem.Click += (_, _) => OpenDashboard();
 
         ToolStripMenuItem openReportItem = new ToolStripMenuItem("Abrir relatório HTML");
         openReportItem.Click += (_, _) => OpenReport();
@@ -30,6 +34,7 @@ class TrayIconService : IDisposable
             Application.Exit();
         };
 
+        menu.Items.Add(openDashboardItem);
         menu.Items.Add(openReportItem);
         menu.Items.Add(openLogsItem);
         menu.Items.Add(new ToolStripSeparator());
@@ -208,8 +213,23 @@ class TrayIconService : IDisposable
     public void Dispose()
     {
         Hide();
+        _dashboardForm?.Dispose();
         _notifyIcon.Dispose();
         _currentIcon?.Dispose();
+    }
+
+    private void OpenDashboard()
+    {
+        if (_dashboardForm is { IsDisposed: false })
+        {
+            _dashboardForm.Show();
+            _dashboardForm.WindowState = FormWindowState.Normal;
+            _dashboardForm.Activate();
+            return;
+        }
+
+        _dashboardForm = new HardwareDashboardForm(_config);
+        _dashboardForm.Show();
     }
 
     private static void OpenReport()

@@ -20,7 +20,7 @@ class SnapshotService
         {
             Timestamp = DateTime.Now,
 
-            CpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package"),
+            CpuTemp = GetCpuTemperature(sensors),
             CpuUso = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Load, "CPU Total"),
             CpuPower = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Power, "CPU Package"),
             CpuFan = cpuFan,
@@ -38,5 +38,39 @@ class SnapshotService
                     s.SensorName.Equals("Memory", StringComparison.OrdinalIgnoreCase))
                 ?.Value
         };
+    }
+
+    private static float? GetCpuTemperature(List<SensorReading> sensors)
+    {
+        string[] preferredSensorNames =
+        {
+            "CPU Package",
+            "Core Max",
+            "Core Average"
+        };
+
+        foreach (string sensorName in preferredSensorNames)
+        {
+            float? value = HardwareMonitorService.GetSensor(
+                sensors,
+                HardwareType.Cpu,
+                SensorType.Temperature,
+                sensorName);
+
+            if (value.HasValue)
+            {
+                return value;
+            }
+        }
+
+        return sensors
+            .Where(s =>
+                s.HardwareType == HardwareType.Cpu &&
+                s.SensorType == SensorType.Temperature &&
+                s.Value.HasValue &&
+                !s.SensorName.Contains("Distance to TjMax", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(s => s.Value)
+            .FirstOrDefault()
+            ?.Value;
     }
 }
