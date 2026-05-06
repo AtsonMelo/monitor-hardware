@@ -21,12 +21,16 @@ O app lê sensores reais do computador usando `LibreHardwareMonitorLib`.
 - clock da memória;
 - fan da GPU.
 
+O app procura sensores de GPU de forma genérica, cobrindo `GpuIntel`, `GpuAmd` e `GpuNvidia` quando a biblioteca consegue detectá-los.
+
 ## SSD/HD
 
 - Temperatura;
 - vida útil, quando disponível;
 - espaço usado;
 - atividade de leitura/escrita.
+
+Para temperatura de SSD/HD, o app tenta nomes comuns como `Composite Temperature`, `Temperature`, `Temperature #1` e `Temperature #2`, ignorando limites como `Warning Temperature` e `Critical Temperature` na leitura atual.
 
 ## Memória RAM
 

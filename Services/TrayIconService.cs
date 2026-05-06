@@ -241,7 +241,7 @@ class TrayIconService : IDisposable
             : "--%";
     }
 
-    private void Hide()
+    public void Hide()
     {
         _notifyIcon.Visible = false;
     }

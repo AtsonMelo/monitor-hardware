@@ -4,8 +4,8 @@ Ideias e próximos caminhos do projeto.
 
 ## Curto prazo
 
-- Melhorar estabilidade do ícone na bandeja;
-- melhorar abertura em PCs diferentes;
+- Melhorar compatibilidade com mais fabricantes e modelos de hardware;
+- validar leituras em notebooks com GPU Intel e SSDs NVMe de fabricantes diferentes;
 - organizar Releases e instruções de instalação;
 - fortalecer logs de erro;
 - evoluir o painel gráfico.

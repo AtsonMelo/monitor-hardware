@@ -2,7 +2,7 @@
 
 Monitor de hardware para Windows feito em C#/.NET 8, usando `LibreHardwareMonitorLib`.
 
-Versão atual: `0.5.1`.
+Versão atual: `0.6.0`.
 
 O app lê sensores reais do computador e mostra informações de CPU, GPU, RAM, SSD, fans, rede, alertas, logs CSV, relatório HTML, interface gráfica e ícone na bandeja do Windows.
 
@@ -62,6 +62,7 @@ Resumo:
 - `--tray`: inicia apenas o ícone na bandeja;
 - `--diagnostico`: lista todos os sensores detectados;
 - `--relatorio`: gera relatório HTML;
+- sem argumentos: abre a interface gráfica por padrão;
 - `resumo`: painel resumido no console;
 - `detalhado`: sensores reais em loop;
 - `somente-log`: grava CSV sem redesenhar o console.

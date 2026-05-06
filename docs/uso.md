@@ -32,10 +32,13 @@ Start-Process (Join-Path $installPath "monitor-hardware.exe") -Verb RunAs
 ## Interface gráfica
 
 ```powershell
+dotnet run
 dotnet run -- --gui
 ```
 
 Abre uma janela própria do Windows com cards de CPU, GPU, RAM e SSD.
+
+Ao executar `monitor-hardware.exe` sem argumentos, o app também abre a interface gráfica por padrão. Isso melhora o uso por duplo clique.
 
 ## Ícone na bandeja
 
@@ -48,7 +51,6 @@ O ícone mostra temperatura em tempo real e menu com opções como abrir painel,
 ## Console
 
 ```powershell
-dotnet run
 dotnet run -- --mode resumo
 dotnet run -- --mode detalhado
 dotnet run -- --mode somente-log

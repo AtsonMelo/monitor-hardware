@@ -9,6 +9,10 @@ using System.Windows.Forms;
 
 class Program
 {
+    private const string SingleInstanceMutexName = @"Local\AtsonMelo.MonitorHardware";
+    private static Mutex? _singleInstanceMutex;
+    private static bool _ownsSingleInstance;
+
     [STAThread]
     static async Task Main(string[] args)
     {
@@ -49,6 +53,10 @@ class Program
                     Console.WriteLine($"GitHub: {errorReport.GitHubUrl}");
                 }
             }
+        }
+        finally
+        {
+            ReleaseSingleInstance();
         }
     }
 
@@ -101,7 +109,25 @@ class Program
 
     private static async Task RunAsync(string[] args)
     {
+        if (args.Length == 0)
+        {
+            args = new[] { "--gui" };
+        }
+
         bool isGraphicalMode = args.Contains("--gui") || args.Contains("--tray");
+
+        AppLogService.Info($"App iniciado. Args: {string.Join(" ", args)}");
+
+        if (isGraphicalMode && !TryAcquireSingleInstance())
+        {
+            ApplicationConfiguration.Initialize();
+            MessageBox.Show(
+                "O Monitor Hardware já está em execução. Use o ícone perto do relógio para abrir o painel ou sair.",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
 
         if (!isGraphicalMode)
         {
@@ -264,6 +290,7 @@ class Program
 
         Application.Run(dashboardForm);
 
+        trayIconService.Hide();
         trayCancellationTokenSource.Cancel();
         await trayMonitorTask;
     }
@@ -467,6 +494,51 @@ class Program
     private static void AttachParentConsole()
     {
         AttachConsole(ATTACH_PARENT_PROCESS);
+    }
+
+    private static bool TryAcquireSingleInstance()
+    {
+        try
+        {
+            _singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out bool createdNew);
+
+            if (!createdNew)
+            {
+                _singleInstanceMutex.Dispose();
+                _singleInstanceMutex = null;
+                return false;
+            }
+
+            _ownsSingleInstance = true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível criar trava de instância única.");
+            return true;
+        }
+    }
+
+    private static void ReleaseSingleInstance()
+    {
+        if (!_ownsSingleInstance || _singleInstanceMutex == null)
+        {
+            return;
+        }
+
+        try
+        {
+            _singleInstanceMutex.ReleaseMutex();
+        }
+        catch (ApplicationException)
+        {
+        }
+        finally
+        {
+            _singleInstanceMutex.Dispose();
+            _singleInstanceMutex = null;
+            _ownsSingleInstance = false;
+        }
     }
 
     [DllImport("kernel32.dll")]

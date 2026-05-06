@@ -29,7 +29,7 @@ class ConsoleDisplayService
 
     private void MostrarCpu(List<SensorReading> sensors)
     {
-        float? cpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package");
+        float? cpuTemp = SensorLookupService.GetCpuTemperature(sensors);
         float? cpuCoreMax = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "Core Max");
         float? cpuUso = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Load, "CPU Total");
         float? cpuPower = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Power, "CPU Package");
@@ -37,40 +37,44 @@ class ConsoleDisplayService
         float? cpuFan = HardwareMonitorService.GetCpuFan(sensors, _config.CpuFanSensorName);
 
         Console.WriteLine("CPU");
-        Console.WriteLine($"  Temperatura Package : {F(cpuTemp, " °C")}");
+        Console.WriteLine($"  Temperatura         : {F(cpuTemp, " °C")}");
         Console.WriteLine($"  Temperatura Core Max: {F(cpuCoreMax, " °C")}");
         Console.WriteLine($"  Uso total           : {F(cpuUso, " %")}");
         Console.WriteLine($"  Potência Package    : {F(cpuPower, " W")}");
         Console.WriteLine($"  Clock Core #1       : {F(cpuClock, " MHz")}");
-        Console.WriteLine($"  Fan CPU             : {F(cpuFan, " RPM")}");
+        Console.WriteLine(cpuFan.HasValue
+            ? $"  Fan CPU             : {F(cpuFan, " RPM")}"
+            : "  Fan CPU             : não disponível neste hardware");
         Console.WriteLine();
     }
 
     private static void MostrarGpu(List<SensorReading> sensors)
     {
-        float? gpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core");
-        float? gpuUso = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Load, "GPU Core");
-        float? gpuPower = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Power, "GPU Package");
-        float? gpuClock = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Clock, "GPU Core");
-        float? gpuMemClock = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Clock, "GPU Memory");
-        float? gpuFan = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Fan, "GPU Fan");
+        float? gpuTemp = SensorLookupService.GetGpuTemperature(sensors);
+        float? gpuUso = SensorLookupService.GetGpuLoad(sensors);
+        float? gpuPower = SensorLookupService.GetGpuPower(sensors);
+        float? gpuClock = SensorLookupService.GetGpuCoreClock(sensors);
+        float? gpuMemClock = SensorLookupService.GetGpuMemoryClock(sensors);
+        float? gpuFan = SensorLookupService.GetGpuFan(sensors);
 
-        Console.WriteLine("GPU - Radeon RX 470");
+        Console.WriteLine($"GPU - {SensorLookupService.GetGpuName(sensors)}");
         Console.WriteLine($"  Temperatura : {F(gpuTemp, " °C")}");
         Console.WriteLine($"  Uso         : {F(gpuUso, " %")}");
         Console.WriteLine($"  Potência    : {F(gpuPower, " W")}");
         Console.WriteLine($"  Clock Core  : {F(gpuClock, " MHz")}");
         Console.WriteLine($"  Clock Mem   : {F(gpuMemClock, " MHz")}");
-        Console.WriteLine($"  Fan         : {F(gpuFan, " RPM")}");
+        Console.WriteLine(gpuFan.HasValue
+            ? $"  Fan         : {F(gpuFan, " RPM")}"
+            : "  Fan         : não disponível neste hardware");
         Console.WriteLine();
     }
 
     private static void MostrarSsd(List<SensorReading> sensors)
     {
-        float? ssdTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Temperature, "Temperature");
-        float? ssdVida = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Level, "Life");
-        float? ssdUso = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Load, "Used Space");
-        float? ssdAtividade = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Load, "Total Activity");
+        float? ssdTemp = SensorLookupService.GetStorageTemperature(sensors);
+        float? ssdVida = SensorLookupService.GetStorageLife(sensors);
+        float? ssdUso = SensorLookupService.GetStorageUsedSpace(sensors);
+        float? ssdAtividade = SensorLookupService.GetStorageActivity(sensors);
 
         Console.WriteLine("SSD");
         Console.WriteLine($"  Temperatura : {F(ssdTemp, " °C")}");
@@ -123,9 +127,9 @@ class ConsoleDisplayService
 
     private void MostrarAlertas(List<SensorReading> sensors)
     {
-        float? cpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Cpu, SensorType.Temperature, "CPU Package");
-        float? gpuTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.GpuAmd, SensorType.Temperature, "GPU Core");
-        float? ssdTemp = HardwareMonitorService.GetSensor(sensors, HardwareType.Storage, SensorType.Temperature, "Temperature");
+        float? cpuTemp = SensorLookupService.GetCpuTemperature(sensors);
+        float? gpuTemp = SensorLookupService.GetGpuTemperature(sensors);
+        float? ssdTemp = SensorLookupService.GetStorageTemperature(sensors);
 
         Console.WriteLine("Alertas");
 
