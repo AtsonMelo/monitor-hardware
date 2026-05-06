@@ -41,12 +41,13 @@ class HardwareDashboardForm : Form
         };
 
         Text = "Monitor Hardware";
+        AutoScaleMode = AutoScaleMode.Dpi;
         _windowIcon = AppIconService.Load();
         Icon = _windowIcon;
         ShowInTaskbar = true;
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(760, 480);
-        Size = new Size(900, 560);
+        MinimumSize = new Size(900, 560);
+        Size = new Size(980, 620);
         BackColor = Color.FromArgb(17, 19, 22);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point);
@@ -84,7 +85,7 @@ class HardwareDashboardForm : Form
             BackColor = BackColor
         };
 
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 154));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 166));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
 
@@ -97,7 +98,7 @@ class HardwareDashboardForm : Form
         };
 
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 260));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
 
         Panel titlePanel = new Panel
         {
@@ -138,8 +139,8 @@ class HardwareDashboardForm : Form
         _updateButton = new Button
         {
             Text = "Verificar atualizações",
-            Width = 220,
-            Height = 30,
+            Width = 260,
+            Height = 32,
             FlatStyle = FlatStyle.Flat,
             ForeColor = Color.White,
             BackColor = Color.FromArgb(36, 41, 47)
@@ -150,8 +151,8 @@ class HardwareDashboardForm : Form
         _errorReportButton = new Button
         {
             Text = "Relatório de erros",
-            Width = 220,
-            Height = 30,
+            Width = 260,
+            Height = 32,
             FlatStyle = FlatStyle.Flat,
             ForeColor = Color.White,
             BackColor = Color.FromArgb(36, 41, 47)
@@ -162,8 +163,8 @@ class HardwareDashboardForm : Form
         _helpButton = new Button
         {
             Text = "Ajuda",
-            Width = 220,
-            Height = 30,
+            Width = 260,
+            Height = 32,
             FlatStyle = FlatStyle.Flat,
             ForeColor = Color.White,
             BackColor = Color.FromArgb(36, 41, 47)
@@ -174,8 +175,8 @@ class HardwareDashboardForm : Form
         _startupCheckBox = new CheckBox
         {
             Text = "Iniciar com o Windows",
-            Width = 220,
-            Height = 28,
+            AutoSize = true,
+            MinimumSize = new Size(260, 32),
             ForeColor = Color.FromArgb(210, 214, 220),
             BackColor = BackColor
         };
@@ -588,7 +589,7 @@ class HardwareDashboardForm : Form
     {
         return value.HasValue
             ? $"{value.Value:0} RPM"
-            : "-- RPM";
+            : "não disponível";
     }
 
     private static string FormatMemory(float? value)

@@ -44,11 +44,13 @@ Rodar testes automatizados:
 dotnet test
 ```
 
-Rodar o monitor em modo normal:
+Abrir a interface gráfica:
 
 ```powershell
 dotnet run
 ```
+
+O comando sem argumentos abre a GUI por padrão. Isso também vale para duplo clique no `monitor-hardware.exe`.
 
 Rodar explicitamente em modo resumo:
 
@@ -76,7 +78,7 @@ dotnet run -- --tray
 
 O tooltip do ícone mostra CPU/GPU/RAM em tempo real.
 
-Parar o monitor em modo normal:
+Parar o monitor em modo console:
 
 ```text
 Ctrl + C
