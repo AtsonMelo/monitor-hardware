@@ -9,3 +9,8 @@ Program.backup-*.cs
 Program.backup-*.cs.bak
 *.csv
 reports/
+
+
+
+# Runtime lock files
+*.conf.lock

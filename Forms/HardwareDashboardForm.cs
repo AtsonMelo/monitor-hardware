@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Reflection;
 using System.Security.Principal;
 using System.Windows.Forms;
 
@@ -40,14 +41,15 @@ class HardwareDashboardForm : Form
             Interval = Math.Max(500, config.IntervaloMs)
         };
 
-        Text = "Monitor Hardware";
+        Text = $"Monitor Hardware Versão {GetAppVersion()}";
         AutoScaleMode = AutoScaleMode.Dpi;
         _windowIcon = AppIconService.Load();
         Icon = _windowIcon;
         ShowInTaskbar = true;
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(900, 560);
-        Size = new Size(980, 620);
+        MinimumSize = new Size(1080, 720);
+        Size = GetInitialWindowSize();
+        AutoScroll = true;
         BackColor = Color.FromArgb(17, 19, 22);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point);
@@ -73,7 +75,15 @@ class HardwareDashboardForm : Form
             _windowIcon.Dispose();
         };
     }
+    private static Size GetInitialWindowSize()
+    {
+        Rectangle workingArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 720);
 
+        int width = Math.Min(1180, Math.Max(1080, workingArea.Width - 80));
+        int height = Math.Min(760, Math.Max(720, workingArea.Height - 80));
+
+        return new Size(width, height);
+    }
     private void BuildLayout()
     {
         TableLayoutPanel root = new TableLayoutPanel
@@ -180,6 +190,7 @@ class HardwareDashboardForm : Form
             ForeColor = Color.FromArgb(210, 214, 220),
             BackColor = BackColor
         };
+
         _startupCheckBox.CheckedChanged += StartupCheckBoxCheckedChanged;
 
         _helpMenu = BuildHelpMenu();
@@ -439,30 +450,68 @@ class HardwareDashboardForm : Form
 
     private void GenerateAndOpenErrorReport()
     {
+        ErrorReportResult? errorReport = null;
+        TechnicalReportResult? technicalReport = null;
+        SanitizedReportResult? sanitizedErrorReport = null;
+        SanitizedReportResult? sanitizedTechnicalReport = null;
+
         try
         {
             _errorReportButton.Enabled = false;
             _errorReportButton.Text = "Coletando...";
 
-            ErrorReportResult result = ErrorReportService.Create(_config);
-            Clipboard.SetText(result.Content);
+            errorReport = ErrorReportService.Create(_config);
+            technicalReport = TechnicalReportService.Create(_config);
+
+            sanitizedErrorReport = ReportSanitizerService.CreateSanitizedCopy(errorReport.ReportPath);
+            sanitizedTechnicalReport = ReportSanitizerService.CreateSanitizedCopy(technicalReport.ReportPath);
+
+            string reportsFolder = Path.GetDirectoryName(sanitizedErrorReport.SanitizedPath)
+                ?? AppLogService.LogDirectory;
 
             DialogResult dialogResult = MessageBox.Show(
-                $"Relatório de erros gerado em:\n{result.ReportPath}\n\nO conteúdo foi copiado para a área de transferência.\n\nDeseja abrir o GitHub para colar e enviar o relatório?",
+                $"Relatórios gerados com sucesso.\n\n" +
+                $"Arquivos recomendados para anexar no GitHub:\n\n" +
+                $"{sanitizedErrorReport.SanitizedPath}\n\n" +
+                $"{sanitizedTechnicalReport.SanitizedPath}\n\n" +
+                $"Os arquivos originais também foram mantidos localmente, mas para Issue pública use preferencialmente os arquivos .sanitized.txt.\n\n" +
+                $"Deseja abrir o GitHub e a pasta dos relatórios agora?",
                 "Relatório de erros",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Information);
 
             if (dialogResult == DialogResult.Yes)
             {
-                OpenUrl(result.GitHubUrl);
+                OpenFolder(reportsFolder);
+                OpenUrl(errorReport.GitHubUrl);
             }
         }
         catch (Exception ex)
         {
             AppLogService.Error(ex, "Não foi possível gerar relatório de erros.");
+
+            string errorReportPathText = errorReport != null
+                ? $"\n\nRelatório de erros salvo em:\n{errorReport.ReportPath}"
+                : "";
+
+            string technicalReportPathText = technicalReport != null
+                ? $"\n\nRelatório técnico salvo em:\n{technicalReport.ReportPath}"
+                : "";
+
+            string sanitizedErrorPathText = sanitizedErrorReport != null
+                ? $"\n\nRelatório de erros sanitizado salvo em:\n{sanitizedErrorReport.SanitizedPath}"
+                : "";
+
+            string sanitizedTechnicalPathText = sanitizedTechnicalReport != null
+                ? $"\n\nRelatório técnico sanitizado salvo em:\n{sanitizedTechnicalReport.SanitizedPath}"
+                : "";
+
             MessageBox.Show(
-                $"Não foi possível gerar o relatório de erros: {ex.Message}",
+                $"Não foi possível concluir a geração dos relatórios: {ex.Message}" +
+                errorReportPathText +
+                technicalReportPathText +
+                sanitizedErrorPathText +
+                sanitizedTechnicalPathText,
                 "Monitor Hardware",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
@@ -616,6 +665,23 @@ class HardwareDashboardForm : Form
             : "Temperatura indisponível; execute como administrador";
     }
 
+    private static string GetAppVersion()
+    {
+        string version = Assembly.GetExecutingAssembly()
+                             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+                             ?.InformationalVersion
+                         ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+                         ?? "desconhecida";
+
+        int metadataIndex = version.IndexOf('+');
+
+        if (metadataIndex > 0)
+        {
+            version = version[..metadataIndex];
+        }
+
+        return version;
+    }
     private static bool IsRunningAsAdministrator()
     {
         using WindowsIdentity identity = WindowsIdentity.GetCurrent();
@@ -675,7 +741,8 @@ class MetricCard : Panel
     {
         Dock = DockStyle.Fill;
         Margin = new Padding(8);
-        Padding = new Padding(18);
+        Padding = new Padding(16);
+        MinimumSize = new Size(0, 190);
         BackColor = Color.FromArgb(28, 31, 35);
 
         _titleLabel = new Label
@@ -691,15 +758,17 @@ class MetricCard : Panel
         {
             Text = "--",
             Dock = DockStyle.Top,
-            Height = 64,
+            Height = 58,
             ForeColor = SystemColors.Highlight,
-            Font = new Font("Segoe UI", 28, FontStyle.Bold, GraphicsUnit.Point)
+            Font = new Font("Segoe UI", 26, FontStyle.Bold, GraphicsUnit.Point)
         };
 
         _secondaryLabel = new Label
         {
             Text = "Aguardando leitura",
             Dock = DockStyle.Fill,
+            AutoEllipsis = false,
+            TextAlign = ContentAlignment.TopLeft,
             ForeColor = Color.FromArgb(170, 176, 184),
             Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point)
         };
