@@ -10,4 +10,5 @@ public class AppConfig
     public string CpuFanSensorName { get; set; } = "Fan #2";
     public string TemperatureUnit { get; set; } = "C";
     public bool ShowTemperatureUnitInTrayIcon { get; set; } = false;
+    public bool EnableAutoUpdateCheck { get; set; } = true;
 }

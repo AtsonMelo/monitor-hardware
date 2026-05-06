@@ -12,10 +12,16 @@ class Program
     [STAThread]
     static async Task Main(string[] args)
     {
-        Console.WriteLine("Monitor de Hardware");
+        bool isGraphicalMode = args.Contains("--gui") || args.Contains("--tray");
+
+        if (!isGraphicalMode)
+        {
+            AttachParentConsole();
+            Console.WriteLine("Monitor de Hardware");
+        }
+
         if (args.Contains("--gui"))
         {
-            HideConsoleWindow();
             ApplicationConfiguration.Initialize();
 
             ConfigService guiConfigService = new ConfigService();
@@ -38,7 +44,6 @@ class Program
 
         if (args.Contains("--tray"))
         {
-            HideConsoleWindow();
             ApplicationConfiguration.Initialize();
 
             ConfigService trayConfigService = new ConfigService();
@@ -348,22 +353,14 @@ class Program
             : "=== Monitor de Hardware - Resumo ===";
     }
 
-    private static void HideConsoleWindow()
+    private static void AttachParentConsole()
     {
-        IntPtr consoleWindow = GetConsoleWindow();
-
-        if (consoleWindow != IntPtr.Zero)
-        {
-            ShowWindow(consoleWindow, SW_HIDE);
-        }
+        AttachConsole(ATTACH_PARENT_PROCESS);
     }
 
     [DllImport("kernel32.dll")]
-    private static extern IntPtr GetConsoleWindow();
+    private static extern bool AttachConsole(int dwProcessId);
 
-    [DllImport("user32.dll")]
-    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-    private const int SW_HIDE = 0;
+    private const int ATTACH_PARENT_PROCESS = -1;
 }
 

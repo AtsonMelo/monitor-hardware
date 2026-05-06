@@ -2,7 +2,7 @@
 
 Monitor de hardware em C#/.NET 8 para Windows, usando a biblioteca `LibreHardwareMonitorLib`.
 
-Versão atual: `0.4.1`.
+Versão atual: `0.5.0`.
 
 O projeto lê sensores reais do computador, como temperatura da CPU, uso da CPU, potência, clock, temperatura da GPU, temperatura do SSD, uso de memória RAM, velocidade de fan e informações de rede.
 
@@ -18,6 +18,14 @@ Este projeto foi criado como estudo prático de:
 - testes automatizados básicos.
 
 ## Como executar
+
+Para baixar o app pronto, acesse a página de Releases do GitHub:
+
+```text
+https://github.com/AtsonMelo/monitor-hardware/releases
+```
+
+Baixe o arquivo `monitor-hardware-vX.Y.Z-win-x64.zip`, extraia para uma pasta e execute `monitor-hardware.exe`.
 
 Para rodar o monitor em modo normal:
 
@@ -64,6 +72,8 @@ No modo bandeja, o menu do ícone também possui a opção `Abrir painel`, que a
 
 Ao abrir o modo gráfico, o app também inicia automaticamente o ícone da bandeja.
 
+A interface gráfica permite verificar atualizações no GitHub e ativar/desativar a inicialização automática com o Windows.
+
 ## Execução como administrador
 
 Algumas leituras físicas, principalmente temperatura da CPU, podem exigir privilégios de administrador no Windows. O executável usa `app.manifest` com `requireAdministrator`, então o Windows solicita elevação via UAC ao abrir o app.
@@ -97,6 +107,14 @@ Para remover a inicialização automática:
 ```
 
 Observação: apps com interface gráfica aparecem após o login do usuário. Antes do login, ainda não existe uma área de trabalho interativa para mostrar janela ou ícone na bandeja.
+
+Também é possível ativar ou desativar essa opção pela própria interface gráfica, marcando `Iniciar com o Windows`.
+
+## Atualizações
+
+O app verifica automaticamente se existe uma versão mais recente publicada nas Releases do GitHub. Também é possível verificar manualmente pela interface gráfica ou pelo menu do ícone na bandeja.
+
+Quando uma nova versão é encontrada, o app abre a página ou o arquivo de download da Release. A substituição automática dos arquivos instalados ainda é uma evolução futura.
 
 ## Relatório HTML
 
@@ -158,7 +176,8 @@ O arquivo `config.json` permite ajustar limites de alerta e intervalo de atualiz
   "Mode": "resumo",
   "CpuFanSensorName": "Fan #2",
   "TemperatureUnit": "C",
-  "ShowTemperatureUnitInTrayIcon": false
+  "ShowTemperatureUnitInTrayIcon": false,
+  "EnableAutoUpdateCheck": true
 }
 ```
 
@@ -173,7 +192,8 @@ Campos:
 - `Mode`: modo de execução configurado. Modos suportados: `resumo`, `detalhado` e `somente-log`;
 - `CpuFanSensorName`: nome do sensor usado como fan da CPU;
 - `TemperatureUnit`: unidade usada na exibição da bandeja. Use `C` para Celsius ou `F` para Fahrenheit;
-- `ShowTemperatureUnitInTrayIcon`: quando `true`, mostra a unidade no ícone da bandeja, como `40°C`. Quando `false`, mostra só `40°` para deixar a fonte maior.
+- `ShowTemperatureUnitInTrayIcon`: quando `true`, mostra a unidade no ícone da bandeja, como `40°C`. Quando `false`, mostra só `40°` para deixar a fonte maior;
+- `EnableAutoUpdateCheck`: quando `true`, verifica automaticamente se existe versão nova no GitHub.
 
 ## Hardware testado
 

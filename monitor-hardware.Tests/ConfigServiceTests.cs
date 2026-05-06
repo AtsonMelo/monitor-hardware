@@ -27,6 +27,7 @@ public class ConfigServiceTests
             Assert.Equal("Fan #2", config.CpuFanSensorName);
             Assert.Equal("C", config.TemperatureUnit);
             Assert.False(config.ShowTemperatureUnitInTrayIcon);
+            Assert.True(config.EnableAutoUpdateCheck);
         }
         finally
         {
@@ -53,7 +54,8 @@ public class ConfigServiceTests
                 Mode = "resumo",
                 CpuFanSensorName = "Fan #3",
                 TemperatureUnit = "F",
-                ShowTemperatureUnitInTrayIcon = true
+                ShowTemperatureUnitInTrayIcon = true,
+                EnableAutoUpdateCheck = false
             };
 
             string json = JsonSerializer.Serialize(customConfig);
@@ -73,6 +75,7 @@ public class ConfigServiceTests
             Assert.Equal("Fan #3", config.CpuFanSensorName);
             Assert.Equal("F", config.TemperatureUnit);
             Assert.True(config.ShowTemperatureUnitInTrayIcon);
+            Assert.False(config.EnableAutoUpdateCheck);
         }
         finally
         {

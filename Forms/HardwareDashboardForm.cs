@@ -10,11 +10,15 @@ class HardwareDashboardForm : Form
     private readonly HardwareMonitorService _hardwareMonitor;
     private readonly SnapshotService _snapshotService;
     private readonly CsvLoggerService _csvLogger;
+    private readonly UpdateService _updateService;
+    private readonly StartupTaskService _startupTaskService;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly Icon _windowIcon;
 
     private Label _updatedAtLabel = null!;
     private Label _statusLabel = null!;
+    private Button _updateButton = null!;
+    private CheckBox _startupCheckBox = null!;
     private MetricCard _cpuCard = null!;
     private MetricCard _gpuCard = null!;
     private MetricCard _ramCard = null!;
@@ -26,6 +30,8 @@ class HardwareDashboardForm : Form
         _hardwareMonitor = new HardwareMonitorService();
         _snapshotService = new SnapshotService(config);
         _csvLogger = new CsvLoggerService();
+        _updateService = new UpdateService();
+        _startupTaskService = new StartupTaskService();
         _timer = new System.Windows.Forms.Timer
         {
             Interval = Math.Max(500, config.IntervaloMs)
@@ -45,10 +51,16 @@ class HardwareDashboardForm : Form
         BuildLayout();
 
         _timer.Tick += (_, _) => RefreshSnapshot();
-        Shown += (_, _) =>
+        Shown += async (_, _) =>
         {
             RefreshSnapshot();
+            RefreshStartupState();
             _timer.Start();
+
+            if (_config.EnableAutoUpdateCheck)
+            {
+                await CheckForUpdatesAsync(showUpToDate: false);
+            }
         };
         FormClosed += (_, _) =>
         {
@@ -68,11 +80,22 @@ class HardwareDashboardForm : Form
             BackColor = BackColor
         };
 
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 92));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
 
-        Panel header = new Panel
+        TableLayoutPanel header = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = BackColor,
+            ColumnCount = 2,
+            RowCount = 1
+        };
+
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 260));
+
+        Panel titlePanel = new Panel
         {
             Dock = DockStyle.Fill,
             BackColor = BackColor
@@ -96,8 +119,45 @@ class HardwareDashboardForm : Form
             Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point)
         };
 
-        header.Controls.Add(_updatedAtLabel);
-        header.Controls.Add(titleLabel);
+        titlePanel.Controls.Add(_updatedAtLabel);
+        titlePanel.Controls.Add(titleLabel);
+
+        FlowLayoutPanel actionsPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            Padding = new Padding(0, 4, 0, 0),
+            BackColor = BackColor
+        };
+
+        _updateButton = new Button
+        {
+            Text = "Verificar atualizações",
+            Width = 220,
+            Height = 30,
+            FlatStyle = FlatStyle.Flat,
+            ForeColor = Color.White,
+            BackColor = Color.FromArgb(36, 41, 47)
+        };
+        _updateButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        _updateButton.Click += async (_, _) => await CheckForUpdatesAsync(showUpToDate: true);
+
+        _startupCheckBox = new CheckBox
+        {
+            Text = "Iniciar com o Windows",
+            Width = 220,
+            Height = 28,
+            ForeColor = Color.FromArgb(210, 214, 220),
+            BackColor = BackColor
+        };
+        _startupCheckBox.CheckedChanged += StartupCheckBoxCheckedChanged;
+
+        actionsPanel.Controls.Add(_updateButton);
+        actionsPanel.Controls.Add(_startupCheckBox);
+
+        header.Controls.Add(titlePanel, 0, 0);
+        header.Controls.Add(actionsPanel, 1, 0);
 
         TableLayoutPanel cardsGrid = new TableLayoutPanel
         {
@@ -258,6 +318,85 @@ class HardwareDashboardForm : Form
                snapshot.SsdTemp >= _config.SsdTempMax
             ? Color.FromArgb(255, 80, 80)
             : Color.FromArgb(170, 176, 184);
+    }
+
+    private async Task CheckForUpdatesAsync(bool showUpToDate)
+    {
+        try
+        {
+            _updateButton.Enabled = false;
+            _updateButton.Text = "Verificando...";
+
+            UpdateCheckResult result = await _updateService.CheckForUpdatesAsync();
+
+            if (result.HasUpdate)
+            {
+                DialogResult dialogResult = MessageBox.Show(
+                    $"Existe uma nova versão disponível: {result.LatestVersion}. Versão atual: {result.CurrentVersion}.\n\nDeseja abrir a página de download?",
+                    "Atualização disponível",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information);
+
+                if (dialogResult == DialogResult.Yes)
+                {
+                    UpdateService.OpenUrl(result.DownloadUrl ?? result.ReleaseUrl);
+                }
+            }
+            else if (showUpToDate)
+            {
+                MessageBox.Show(
+                    $"Você já está usando a versão mais recente: {result.CurrentVersion}.",
+                    "Monitor Hardware",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (showUpToDate)
+            {
+                MessageBox.Show(
+                    $"Não foi possível verificar atualizações: {ex.Message}",
+                    "Monitor Hardware",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+        }
+        finally
+        {
+            _updateButton.Text = "Verificar atualizações";
+            _updateButton.Enabled = true;
+        }
+    }
+
+    private void RefreshStartupState()
+    {
+        _startupCheckBox.CheckedChanged -= StartupCheckBoxCheckedChanged;
+        _startupCheckBox.Checked = _startupTaskService.IsEnabled();
+        _startupCheckBox.CheckedChanged += StartupCheckBoxCheckedChanged;
+    }
+
+    private void StartupCheckBoxCheckedChanged(object? sender, EventArgs eventArgs)
+    {
+        SetStartupFromCheckbox();
+    }
+
+    private void SetStartupFromCheckbox()
+    {
+        try
+        {
+            _startupTaskService.SetEnabled(_startupCheckBox.Checked);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Não foi possível alterar a inicialização automática: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+
+            RefreshStartupState();
+        }
     }
 
     private string FormatTemperature(float? celsius)

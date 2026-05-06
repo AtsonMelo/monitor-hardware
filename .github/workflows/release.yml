@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish Windows x64
+        run: dotnet publish .\monitor-hardware.csproj -c Release -r win-x64 --self-contained true
+
+      - name: Package ZIP
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $zip = "monitor-hardware-$tag-win-x64.zip"
+          Compress-Archive -Path ".\bin\Release\net8.0-windows\win-x64\publish\*" -DestinationPath $zip -Force
+          "ZIP_PATH=$zip" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" "${{ env.ZIP_PATH }}" `
+            --title "Monitor Hardware ${{ github.ref_name }}" `
+            --notes "Pacote Windows x64 self-contained do Monitor Hardware."
