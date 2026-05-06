@@ -12,6 +12,28 @@ class Program
     static async Task Main(string[] args)
     {
         Console.WriteLine("Monitor de Hardware");
+        if (args.Contains("--gui"))
+        {
+            ApplicationConfiguration.Initialize();
+
+            ConfigService guiConfigService = new ConfigService();
+            AppConfig guiConfig = guiConfigService.Load();
+
+            if (guiConfig.IntervaloMs <= 0)
+            {
+                MessageBox.Show(
+                    "IntervaloMs deve ser maior que zero no config.json.",
+                    "Monitor Hardware",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            Application.Run(new HardwareDashboardForm(guiConfig));
+
+            return;
+        }
+
         if (args.Contains("--tray"))
         {
             ApplicationConfiguration.Initialize();
