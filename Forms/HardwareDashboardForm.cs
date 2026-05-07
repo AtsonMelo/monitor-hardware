@@ -47,7 +47,7 @@ class HardwareDashboardForm : Form
         Icon = _windowIcon;
         ShowInTaskbar = true;
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(1080, 720);
+        MinimumSize = new Size(1080, 740);
         Size = GetInitialWindowSize();
         AutoScroll = true;
         BackColor = Color.FromArgb(17, 19, 22);
@@ -116,7 +116,7 @@ class HardwareDashboardForm : Form
         Rectangle workingArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 720);
 
         int width = Math.Min(1180, Math.Max(1080, workingArea.Width - 80));
-        int height = Math.Min(760, Math.Max(720, workingArea.Height - 80));
+        int height = Math.Min(820, Math.Max(740, workingArea.Height - 60));
 
         return new Size(width, height);
     }
@@ -782,26 +782,30 @@ class MetricCard : Panel
     {
         Dock = DockStyle.Fill;
         Margin = new Padding(8);
-        Padding = new Padding(16);
-        MinimumSize = new Size(0, 190);
+        Padding = new Padding(20, 18, 20, 18);
+        MinimumSize = new Size(0, 220);
         BackColor = Color.FromArgb(28, 31, 35);
 
         _titleLabel = new Label
         {
             Text = title,
             Dock = DockStyle.Top,
-            Height = 28,
+            Height = 34,
             ForeColor = Color.FromArgb(210, 214, 220),
-            Font = new Font("Segoe UI", 11, FontStyle.Bold, GraphicsUnit.Point)
+            Font = new Font("Segoe UI", 11, FontStyle.Bold, GraphicsUnit.Point),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true
         };
 
         _primaryLabel = new Label
         {
             Text = "--",
             Dock = DockStyle.Top,
-            Height = 58,
+            Height = 72,
             ForeColor = SystemColors.Highlight,
-            Font = new Font("Segoe UI", 26, FontStyle.Bold, GraphicsUnit.Point)
+            Font = new Font("Segoe UI", 28, FontStyle.Bold, GraphicsUnit.Point),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true
         };
 
         _secondaryLabel = new Label
@@ -810,8 +814,9 @@ class MetricCard : Panel
             Dock = DockStyle.Fill,
             AutoEllipsis = false,
             TextAlign = ContentAlignment.TopLeft,
-            ForeColor = Color.FromArgb(170, 176, 184),
-            Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point)
+            ForeColor = Color.FromArgb(190, 196, 205),
+            Font = new Font("Segoe UI", 10.5f, FontStyle.Regular, GraphicsUnit.Point),
+            UseMnemonic = false
         };
 
         Controls.Add(_secondaryLabel);
@@ -821,8 +826,20 @@ class MetricCard : Panel
 
     public void SetValues(string primary, string secondary, Color accent)
     {
-        _primaryLabel.Text = primary;
+        _primaryLabel.Text = string.IsNullOrWhiteSpace(primary) ? "--" : primary;
         _primaryLabel.ForeColor = accent;
-        _secondaryLabel.Text = secondary;
+
+        _secondaryLabel.Text = FormatSecondaryText(secondary);
+    }
+
+    private static string FormatSecondaryText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return "Informação não disponível";
+        }
+
+        return text.Replace(" | ", Environment.NewLine);
     }
 }
+
