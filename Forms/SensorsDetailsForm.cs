@@ -76,13 +76,15 @@ class SensorsDetailsForm : Form
         };
 
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
 
         TableLayoutPanel header = new TableLayoutPanel
         {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Dock = DockStyle.Fill,
             ColumnCount = 2,
             RowCount = 1,
@@ -91,8 +93,8 @@ class SensorsDetailsForm : Form
         };
 
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
-        header.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        header.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         Label titleLabel = new Label
         {
@@ -117,6 +119,8 @@ class SensorsDetailsForm : Form
 
         TableLayoutPanel controlsBar = new TableLayoutPanel
         {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Dock = DockStyle.Fill,
             ColumnCount = 3,
             RowCount = 1,
@@ -125,15 +129,16 @@ class SensorsDetailsForm : Form
         };
 
         controlsBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        controlsBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 142));
-        controlsBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 142));
-        controlsBar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        controlsBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        controlsBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        controlsBar.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
         _filterTextBox = new TextBox
         {
             Dock = DockStyle.Fill,
             AutoSize = false,
-            Height = 38,
+            Height = 40,
+            MinimumSize = new Size(220, 40),
             Margin = new Padding(0, 0, 8, 0),
             BackColor = InputBackground,
             ForeColor = MainText,
@@ -217,9 +222,13 @@ class SensorsDetailsForm : Form
 
     private static void ConfigureActionButton(Button button)
     {
+        button.AutoSize = true;
+        button.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         button.Dock = DockStyle.Fill;
-        button.Height = 38;
-        button.MinimumSize = new Size(130, 38);
+        button.Height = 40;
+        button.MinimumSize = new Size(142, 40);
+        button.Margin = new Padding(0);
+        button.Padding = new Padding(10, 0, 10, 0);
         button.FlatStyle = FlatStyle.Flat;
         button.ForeColor = Color.White;
         button.BackColor = ButtonBackground;
