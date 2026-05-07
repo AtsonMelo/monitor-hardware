@@ -22,11 +22,13 @@ class HardwareDashboardForm : Form
     private readonly StartupTaskService _startupTaskService;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly Icon _windowIcon;
+    private readonly ToolTip _headerToolTip = new ToolTip();
 
-    private Label _updatedAtLabel = null!;
     private Label _statusLabel = null!;
+    private Label _titleLabel = null!;
     private Button _updateButton = null!;
     private Button _sensorsButton = null!;
+    private Button _sensorOriginsButton = null!;
     private Button _errorReportButton = null!;
     private Button _helpButton = null!;
     private CheckBox _startupCheckBox = null!;
@@ -34,6 +36,7 @@ class HardwareDashboardForm : Form
     private TableLayoutPanel _headerLayout = null!;
     private TableLayoutPanel _titleLayout = null!;
     private TableLayoutPanel _actionsLayout = null!;
+    private FlowLayoutPanel _headerButtonsPanel = null!;
     private TableLayoutPanel _cardsGrid = null!;
     private MetricCard _cpuCard = null!;
     private MetricCard _gpuCard = null!;
@@ -41,6 +44,8 @@ class HardwareDashboardForm : Form
     private MetricCard _ssdCard = null!;
     private HardwareMonitorService? _hardwareMonitor;
     private SensorsDetailsForm? _sensorsDetailsForm;
+    private SensorOriginsForm? _sensorOriginsForm;
+    private DateTime? _lastUpdatedAt;
     private bool _headerIsStacked;
     private bool _cardsAreStacked;
 
@@ -101,6 +106,7 @@ class HardwareDashboardForm : Form
             _timer.Stop();
             _timer.Dispose();
             _helpMenu.Dispose();
+            _headerToolTip.Dispose();
             _windowIcon.Dispose();
         };
     }
@@ -124,7 +130,8 @@ class HardwareDashboardForm : Form
         _ramCard.SetValues("...", "Carregando memória RAM...", Color.FromArgb(170, 176, 184));
         _ssdCard.SetValues("...", "Carregando sensores do SSD...", Color.FromArgb(170, 176, 184));
 
-        _updatedAtLabel.Text = "Inicializando monitoramento...";
+        _lastUpdatedAt = null;
+        _headerToolTip.SetToolTip(_titleLabel, "Inicializando monitoramento...");
         _statusLabel.Text = "Carregando sensores...";
         _statusLabel.ForeColor = Color.FromArgb(170, 176, 184);
     }
@@ -163,12 +170,38 @@ class HardwareDashboardForm : Form
 
     private bool ShouldStackHeader()
     {
-        return GetLayoutWidth(this) < HeaderStackBreakpoint;
+        return GetLayoutWidth(this) < HeaderStackBreakpoint ||
+               ClientSize.Height < 820;
     }
 
     private bool ShouldStackCards()
     {
-        return GetLayoutWidth(_cardsGrid) < CardsSingleColumnBreakpoint;
+        int layoutWidth = GetLayoutWidth(_cardsGrid);
+
+        int layoutHeight = _cardsGrid.ClientSize.Height > 0
+            ? _cardsGrid.ClientSize.Height
+            : _cardsGrid.Height;
+
+        bool isNarrow = layoutWidth < CardsSingleColumnBreakpoint;
+        bool hasEnoughHeightForSingleColumn = layoutHeight >= 560;
+
+        return isNarrow && hasEnoughHeightForSingleColumn;
+    }
+
+    private bool ShouldUseCompactCards(bool stackCards)
+    {
+        if (stackCards)
+        {
+            return true;
+        }
+
+        int layoutHeight = _cardsGrid.ClientSize.Height > 0
+            ? _cardsGrid.ClientSize.Height
+            : _cardsGrid.Height;
+
+        int estimatedCardHeight = layoutHeight / 2;
+
+        return estimatedCardHeight < 240;
     }
 
     private void BuildLayout()
@@ -203,11 +236,11 @@ class HardwareDashboardForm : Form
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             BackColor = BackColor,
             ColumnCount = 1,
-            RowCount = 2,
+            RowCount = 1,
             MinimumSize = new Size(0, 70)
         };
 
-        Label titleLabel = new Label
+        _titleLabel = new Label
         {
             Text = "Monitor Hardware",
             Dock = DockStyle.Fill,
@@ -217,22 +250,21 @@ class HardwareDashboardForm : Form
             TextAlign = ContentAlignment.MiddleLeft,
             AutoEllipsis = true
         };
-
-        _updatedAtLabel = new Label
-        {
-            Text = "Atualizando...",
-            Dock = DockStyle.Fill,
-            Height = 28,
-            ForeColor = Color.FromArgb(170, 176, 184),
-            Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point),
-            TextAlign = ContentAlignment.MiddleLeft,
-            AutoEllipsis = true
-        };
-
         _titleLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-        _titleLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        _titleLayout.Controls.Add(titleLabel, 0, 0);
-        _titleLayout.Controls.Add(_updatedAtLabel, 0, 1);
+        _titleLayout.Controls.Add(_titleLabel, 0, 0);
+
+        _headerButtonsPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = BackColor,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+            RightToLeft = RightToLeft.Yes
+        };
 
         _actionsLayout = new TableLayoutPanel
         {
@@ -258,6 +290,13 @@ class HardwareDashboardForm : Form
         ConfigureActionButton(_sensorsButton);
         _sensorsButton.Click += (_, _) => OpenSensorsDetails();
 
+        _sensorOriginsButton = new Button
+        {
+            Text = "Origem dos sensores"
+        };
+        ConfigureActionButton(_sensorOriginsButton);
+        _sensorOriginsButton.Click += (_, _) => OpenSensorOrigins();
+
         _errorReportButton = new Button
         {
             Text = "Relatório de erros"
@@ -267,9 +306,9 @@ class HardwareDashboardForm : Form
 
         _helpButton = new Button
         {
-            Text = "Ajuda"
+            Text = "?"
         };
-        ConfigureActionButton(_helpButton);
+        ConfigureHelpButton(_helpButton);
         _helpButton.Click += (_, _) => ShowHelpMenu();
 
         _startupCheckBox = new CheckBox
@@ -336,6 +375,24 @@ class HardwareDashboardForm : Form
         button.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 34, 39);
     }
 
+    private static void ConfigureHelpButton(Button button)
+    {
+        button.AutoSize = false;
+        button.Size = new Size(30, 30);
+        button.MinimumSize = new Size(30, 30);
+        button.FlatStyle = FlatStyle.Flat;
+        button.ForeColor = Color.FromArgb(230, 233, 236);
+        button.BackColor = Color.FromArgb(32, 37, 42);
+        button.UseVisualStyleBackColor = false;
+        button.TextAlign = ContentAlignment.MiddleCenter;
+        button.Font = new Font("Segoe UI", 10, FontStyle.Bold, GraphicsUnit.Point);
+        button.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(44, 50, 57);
+        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 34, 39);
+        button.Margin = new Padding(0);
+        button.Padding = new Padding(0);
+    }
+
     private void ApplyResponsiveLayout()
     {
         if (_headerLayout == null || _cardsGrid == null)
@@ -371,30 +428,66 @@ class HardwareDashboardForm : Form
             _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-            _titleLayout.Margin = new Padding(0, 0, 0, 10);
+            _titleLayout.Margin = new Padding(0, 0, 0, 0);
             _actionsLayout.Margin = new Padding(0);
+            _headerButtonsPanel.Margin = new Padding(0, 0, 0, 10);
 
             ConfigureActionsLayout(useTwoColumns: true);
-            _headerLayout.Controls.Add(_titleLayout, 0, 0);
+            ConfigureHeaderButtonsPanel();
+            _headerLayout.Controls.Add(BuildHeaderTopRow(), 0, 0);
             _headerLayout.Controls.Add(_actionsLayout, 0, 1);
         }
         else
         {
-            _headerLayout.ColumnCount = 2;
-            _headerLayout.RowCount = 1;
+            _headerLayout.ColumnCount = 1;
+            _headerLayout.RowCount = 2;
             _headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            _headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, HeaderActionsWidth));
+            _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             _titleLayout.Margin = new Padding(0);
             _actionsLayout.Margin = new Padding(0);
+            _headerButtonsPanel.Margin = new Padding(0, 0, 0, 10);
 
             ConfigureActionsLayout(useTwoColumns: false);
-            _headerLayout.Controls.Add(_titleLayout, 0, 0);
-            _headerLayout.Controls.Add(_actionsLayout, 1, 0);
+            ConfigureHeaderButtonsPanel();
+            _headerLayout.Controls.Add(BuildHeaderTopRow(), 0, 0);
+            _headerLayout.Controls.Add(_actionsLayout, 0, 1);
         }
 
         _headerLayout.ResumeLayout(true);
+    }
+
+    private Control BuildHeaderTopRow()
+    {
+        TableLayoutPanel topRow = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = BackColor,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = new Padding(0)
+        };
+
+        topRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        topRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        topRow.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        topRow.Controls.Add(_titleLayout, 0, 0);
+        topRow.Controls.Add(_headerButtonsPanel, 1, 0);
+        return topRow;
+    }
+
+    private void ConfigureHeaderButtonsPanel()
+    {
+        _headerButtonsPanel.Controls.Clear();
+        _headerButtonsPanel.Controls.Add(_helpButton);
+        _headerToolTip.SetToolTip(_helpButton, "Ajuda");
+        if (_lastUpdatedAt.HasValue)
+        {
+            _headerToolTip.SetToolTip(_titleLabel, $"Atualizado em {_lastUpdatedAt.Value:dd/MM/yyyy HH:mm:ss}");
+        }
     }
 
     private void ConfigureActionsLayout(bool useTwoColumns)
@@ -416,10 +509,9 @@ class HardwareDashboardForm : Form
 
             AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 8, 8));
             AddActionControl(_sensorsButton, 1, 0, new Padding(8, 0, 0, 8));
-            AddActionControl(_errorReportButton, 0, 1, new Padding(0, 0, 8, 8));
-            AddActionControl(_helpButton, 1, 1, new Padding(8, 0, 0, 8));
-            AddActionControl(_startupCheckBox, 0, 2, new Padding(0));
-            _actionsLayout.SetColumnSpan(_startupCheckBox, 2);
+            AddActionControl(_sensorOriginsButton, 0, 1, new Padding(0, 0, 8, 8));
+            AddActionControl(_errorReportButton, 1, 1, new Padding(8, 0, 0, 8));
+            AddActionControl(_startupCheckBox, 0, 2, new Padding(0, 0, 0, 0));
         }
         else
         {
@@ -434,8 +526,8 @@ class HardwareDashboardForm : Form
 
             AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 0, 8));
             AddActionControl(_sensorsButton, 0, 1, new Padding(0, 0, 0, 8));
-            AddActionControl(_errorReportButton, 0, 2, new Padding(0, 0, 0, 8));
-            AddActionControl(_helpButton, 0, 3, new Padding(0, 0, 0, 8));
+            AddActionControl(_sensorOriginsButton, 0, 2, new Padding(0, 0, 0, 8));
+            AddActionControl(_errorReportButton, 0, 3, new Padding(0, 0, 0, 8));
             AddActionControl(_startupCheckBox, 0, 4, new Padding(0));
         }
 
@@ -484,6 +576,38 @@ class HardwareDashboardForm : Form
         }
     }
 
+    private void OpenSensorOrigins()
+    {
+        try
+        {
+            if (_sensorOriginsForm is { IsDisposed: false })
+            {
+                if (_sensorOriginsForm.WindowState == FormWindowState.Minimized)
+                {
+                    _sensorOriginsForm.WindowState = FormWindowState.Normal;
+                }
+
+                _sensorOriginsForm.Show();
+                _sensorOriginsForm.Activate();
+                return;
+            }
+
+            _sensorOriginsForm = new SensorOriginsForm(_windowIcon);
+            _sensorOriginsForm.FormClosed += (_, _) => _sensorOriginsForm = null;
+            _sensorOriginsForm.Show(this);
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível abrir a tela de origem dos sensores.");
+
+            MessageBox.Show(
+                $"Não foi possível abrir a tela de origem dos sensores: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+    }
+
     private void RefreshSnapshot()
     {
         try
@@ -499,7 +623,8 @@ class HardwareDashboardForm : Form
             }
 
             UpdateCards(snapshot);
-            _updatedAtLabel.Text = $"Atualizado em {snapshot.Timestamp:dd/MM/yyyy HH:mm:ss}";
+            _lastUpdatedAt = snapshot.Timestamp;
+            _headerToolTip.SetToolTip(_titleLabel, $"Atualizado em {snapshot.Timestamp:dd/MM/yyyy HH:mm:ss}");
             _statusLabel.Text = GetStatusText(snapshot);
             _statusLabel.ForeColor = GetStatusColor(snapshot);
         }
@@ -519,10 +644,11 @@ class HardwareDashboardForm : Form
         }
 
         bool stackCards = ShouldStackCards();
+        bool compactCards = ShouldUseCompactCards(stackCards);
 
         if (_cardsGrid.Controls.Count == 4 && _cardsAreStacked == stackCards)
         {
-            ApplyMetricCardDensity(stackCards);
+            ApplyMetricCardDensity(compactCards);
             return;
         }
 
@@ -558,10 +684,10 @@ class HardwareDashboardForm : Form
             _cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
             _cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
 
-            AddMetricCard(_cpuCard, 0, 0, new Padding(0, 0, 8, 8), isCompact: false);
-            AddMetricCard(_gpuCard, 1, 0, new Padding(8, 0, 0, 8), isCompact: false);
-            AddMetricCard(_ramCard, 0, 1, new Padding(0, 8, 8, 0), isCompact: false);
-            AddMetricCard(_ssdCard, 1, 1, new Padding(8, 8, 0, 0), isCompact: false);
+            AddMetricCard(_cpuCard, 0, 0, new Padding(0, 0, 8, 8), isCompact: compactCards);
+            AddMetricCard(_gpuCard, 1, 0, new Padding(8, 0, 0, 8), isCompact: compactCards);
+            AddMetricCard(_ramCard, 0, 1, new Padding(0, 8, 8, 0), isCompact: compactCards);
+            AddMetricCard(_ssdCard, 1, 1, new Padding(8, 8, 0, 0), isCompact: compactCards);
         }
 
         _cardsGrid.ResumeLayout(true);
@@ -1166,4 +1292,3 @@ class MetricCard : Panel
             : text;
     }
 }
-
