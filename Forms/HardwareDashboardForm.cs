@@ -248,28 +248,28 @@ class HardwareDashboardForm : Form
         {
             Text = "Verificar atualizações"
         };
-        ConfigureActionButton(_updateButton, isPrimary: false);
+        ConfigureActionButton(_updateButton);
         _updateButton.Click += async (_, _) => await CheckForUpdatesAsync(showUpToDate: true);
 
         _sensorsButton = new Button
         {
             Text = "Conferir todos os sensores"
         };
-        ConfigureActionButton(_sensorsButton, isPrimary: false);
+        ConfigureActionButton(_sensorsButton);
         _sensorsButton.Click += (_, _) => OpenSensorsDetails();
 
         _errorReportButton = new Button
         {
             Text = "Relatório de erros"
         };
-        ConfigureActionButton(_errorReportButton, isPrimary: true);
+        ConfigureActionButton(_errorReportButton);
         _errorReportButton.Click += (_, _) => GenerateAndOpenErrorReport();
 
         _helpButton = new Button
         {
             Text = "Ajuda"
         };
-        ConfigureActionButton(_helpButton, isPrimary: false);
+        ConfigureActionButton(_helpButton);
         _helpButton.Click += (_, _) => ShowHelpMenu();
 
         _startupCheckBox = new CheckBox
@@ -321,27 +321,19 @@ class HardwareDashboardForm : Form
         ApplyResponsiveLayout();
     }
 
-    private static void ConfigureActionButton(Button button, bool isPrimary)
+    private static void ConfigureActionButton(Button button)
     {
         button.Dock = DockStyle.Fill;
         button.Height = 38;
         button.MinimumSize = new Size(220, 38);
         button.FlatStyle = FlatStyle.Flat;
         button.ForeColor = Color.White;
-        button.BackColor = isPrimary
-            ? Color.FromArgb(0, 120, 212)
-            : Color.FromArgb(36, 41, 47);
+        button.BackColor = Color.FromArgb(36, 41, 47);
         button.UseVisualStyleBackColor = false;
         button.TextAlign = ContentAlignment.MiddleCenter;
-        button.FlatAppearance.BorderColor = isPrimary
-            ? Color.FromArgb(64, 156, 255)
-            : Color.FromArgb(58, 66, 74);
-        button.FlatAppearance.MouseOverBackColor = isPrimary
-            ? Color.FromArgb(16, 137, 230)
-            : Color.FromArgb(44, 50, 57);
-        button.FlatAppearance.MouseDownBackColor = isPrimary
-            ? Color.FromArgb(0, 90, 158)
-            : Color.FromArgb(30, 34, 39);
+        button.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(44, 50, 57);
+        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 34, 39);
     }
 
     private void ApplyResponsiveLayout()
