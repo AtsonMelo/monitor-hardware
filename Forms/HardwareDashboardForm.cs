@@ -8,6 +8,13 @@ using System.Windows.Forms;
 
 class HardwareDashboardForm : Form
 {
+    private const int MinimumWindowWidth = 760;
+    private const int MinimumWindowHeight = 700;
+    private const int DefaultWindowWidth = 900;
+    private const int HeaderStackBreakpoint = 940;
+    private const int CardsSingleColumnBreakpoint = 860;
+    private const int HeaderActionsWidth = 300;
+
     private readonly AppConfig _config;
     private readonly SnapshotService _snapshotService;
     private readonly CsvLoggerService _csvLogger;
@@ -23,11 +30,17 @@ class HardwareDashboardForm : Form
     private Button _helpButton = null!;
     private CheckBox _startupCheckBox = null!;
     private ContextMenuStrip _helpMenu = null!;
+    private TableLayoutPanel _headerLayout = null!;
+    private TableLayoutPanel _titleLayout = null!;
+    private TableLayoutPanel _actionsLayout = null!;
+    private TableLayoutPanel _cardsGrid = null!;
     private MetricCard _cpuCard = null!;
     private MetricCard _gpuCard = null!;
     private MetricCard _ramCard = null!;
     private MetricCard _ssdCard = null!;
     private HardwareMonitorService? _hardwareMonitor;
+    private bool _headerIsStacked;
+    private bool _cardsAreStacked;
 
     public HardwareDashboardForm(AppConfig config)
     {
@@ -47,36 +60,38 @@ class HardwareDashboardForm : Form
         Icon = _windowIcon;
         ShowInTaskbar = true;
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(1080, 740);
+        MinimumSize = new Size(MinimumWindowWidth, MinimumWindowHeight);
         Size = GetInitialWindowSize();
-        AutoScroll = true;
+        ApplyNotebookWindowMode();
+        AutoScroll = false;
         BackColor = Color.FromArgb(17, 19, 22);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point);
         DoubleBuffered = true;
 
         BuildLayout();
+        SizeChanged += (_, _) => ApplyResponsiveLayout();
         SetLoadingState();
 
         _timer.Tick += (_, _) => RefreshSnapshot();
         Shown += (_, _) =>
-{
-    SetLoadingState();
-    RefreshStartupState();
-    _timer.Start();
-
-    BeginInvoke(new Action(async () =>
-    {
-        await Task.Delay(300);
-
-        RefreshSnapshot();
-
-        if (_config.EnableAutoUpdateCheck)
         {
-            await CheckForUpdatesAsync(showUpToDate: false);
-        }
-    }));
-};
+            SetLoadingState();
+            RefreshStartupState();
+            _timer.Start();
+
+            BeginInvoke(new Action(async () =>
+            {
+                await Task.Delay(300);
+
+                RefreshSnapshot();
+
+                if (_config.EnableAutoUpdateCheck)
+                {
+                    await CheckForUpdatesAsync(showUpToDate: false);
+                }
+            }));
+        };
         FormClosing += HardwareDashboardFormClosing;
 
         FormClosed += (_, _) =>
@@ -111,15 +126,49 @@ class HardwareDashboardForm : Form
         _statusLabel.Text = "Carregando sensores...";
         _statusLabel.ForeColor = Color.FromArgb(170, 176, 184);
     }
+
     private static Size GetInitialWindowSize()
     {
         Rectangle workingArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 720);
 
-        int width = Math.Min(1180, Math.Max(1080, workingArea.Width - 80));
-        int height = Math.Min(820, Math.Max(740, workingArea.Height - 60));
+        int width = Math.Min(1180, Math.Max(DefaultWindowWidth, workingArea.Width - 40));
+        int height = Math.Min(820, Math.Max(MinimumWindowHeight, workingArea.Height - 40));
 
         return new Size(width, height);
     }
+
+    private void ApplyNotebookWindowMode()
+    {
+        Rectangle workingArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 720);
+
+        bool compactScreen =
+            workingArea.Width <= 1366 ||
+            workingArea.Height <= 768 ||
+            DeviceDpi > 120;
+
+        if (compactScreen)
+        {
+            WindowState = FormWindowState.Maximized;
+        }
+    }
+
+    private static int GetLayoutWidth(Control control)
+    {
+        return control.ClientSize.Width > 0
+            ? control.ClientSize.Width
+            : control.Width;
+    }
+
+    private bool ShouldStackHeader()
+    {
+        return GetLayoutWidth(this) < HeaderStackBreakpoint;
+    }
+
+    private bool ShouldStackCards()
+    {
+        return GetLayoutWidth(_cardsGrid) < CardsSingleColumnBreakpoint;
+    }
+
     private void BuildLayout()
     {
         TableLayoutPanel root = new TableLayoutPanel
@@ -131,151 +180,268 @@ class HardwareDashboardForm : Form
             BackColor = BackColor
         };
 
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 166));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
 
-        TableLayoutPanel header = new TableLayoutPanel
+        _headerLayout = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             BackColor = BackColor,
-            ColumnCount = 2,
-            RowCount = 1
+            Margin = new Padding(0, 0, 0, 12)
         };
 
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
-
-        Panel titlePanel = new Panel
+        _titleLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            BackColor = BackColor
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = BackColor,
+            ColumnCount = 1,
+            RowCount = 2,
+            MinimumSize = new Size(0, 70)
         };
 
         Label titleLabel = new Label
         {
             Text = "Monitor Hardware",
-            Dock = DockStyle.Top,
-            Height = 34,
+            Dock = DockStyle.Fill,
+            Height = 42,
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 18, FontStyle.Bold, GraphicsUnit.Point)
+            Font = new Font("Segoe UI", 17, FontStyle.Bold, GraphicsUnit.Point),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true
         };
 
         _updatedAtLabel = new Label
         {
             Text = "Atualizando...",
-            Dock = DockStyle.Top,
-            Height = 26,
+            Dock = DockStyle.Fill,
+            Height = 28,
             ForeColor = Color.FromArgb(170, 176, 184),
-            Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point)
+            Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true
         };
 
-        titlePanel.Controls.Add(_updatedAtLabel);
-        titlePanel.Controls.Add(titleLabel);
+        _titleLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+        _titleLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        _titleLayout.Controls.Add(titleLabel, 0, 0);
+        _titleLayout.Controls.Add(_updatedAtLabel, 0, 1);
 
-        FlowLayoutPanel actionsPanel = new FlowLayoutPanel
+        _actionsLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
-            Padding = new Padding(0, 4, 0, 0),
-            BackColor = BackColor
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(0),
+            BackColor = BackColor,
+            Margin = new Padding(0)
         };
 
         _updateButton = new Button
         {
-            Text = "Verificar atualizações",
-            Width = 260,
-            Height = 32,
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.White,
-            BackColor = Color.FromArgb(36, 41, 47)
+            Text = "Verificar atualizações"
         };
-        _updateButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        ConfigureActionButton(_updateButton, isPrimary: false);
         _updateButton.Click += async (_, _) => await CheckForUpdatesAsync(showUpToDate: true);
 
         _errorReportButton = new Button
         {
-            Text = "Relatório de erros",
-            Width = 260,
-            Height = 32,
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.White,
-            BackColor = Color.FromArgb(36, 41, 47)
+            Text = "Relatório de erros"
         };
-        _errorReportButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        ConfigureActionButton(_errorReportButton, isPrimary: true);
         _errorReportButton.Click += (_, _) => GenerateAndOpenErrorReport();
 
         _helpButton = new Button
         {
-            Text = "Ajuda",
-            Width = 260,
-            Height = 32,
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.White,
-            BackColor = Color.FromArgb(36, 41, 47)
+            Text = "Ajuda"
         };
-        _helpButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        ConfigureActionButton(_helpButton, isPrimary: false);
         _helpButton.Click += (_, _) => ShowHelpMenu();
 
         _startupCheckBox = new CheckBox
         {
             Text = "Iniciar com o Windows",
-            AutoSize = true,
-            MinimumSize = new Size(260, 32),
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            Height = 38,
+            MinimumSize = new Size(220, 38),
             ForeColor = Color.FromArgb(210, 214, 220),
-            BackColor = BackColor
+            BackColor = BackColor,
+            TextAlign = ContentAlignment.MiddleLeft,
+            UseVisualStyleBackColor = false
         };
 
         _startupCheckBox.CheckedChanged += StartupCheckBoxCheckedChanged;
 
         _helpMenu = BuildHelpMenu();
 
-        actionsPanel.Controls.Add(_updateButton);
-        actionsPanel.Controls.Add(_errorReportButton);
-        actionsPanel.Controls.Add(_helpButton);
-        actionsPanel.Controls.Add(_startupCheckBox);
-
-        header.Controls.Add(titlePanel, 0, 0);
-        header.Controls.Add(actionsPanel, 1, 0);
-
-        TableLayoutPanel cardsGrid = new TableLayoutPanel
+        _cardsGrid = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 2,
+            Padding = new Padding(0),
             BackColor = BackColor
         };
-
-        cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
-        cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
 
         _cpuCard = new MetricCard("CPU");
         _gpuCard = new MetricCard("GPU");
         _ramCard = new MetricCard("Memória RAM");
         _ssdCard = new MetricCard("SSD");
 
-        cardsGrid.Controls.Add(_cpuCard, 0, 0);
-        cardsGrid.Controls.Add(_gpuCard, 1, 0);
-        cardsGrid.Controls.Add(_ramCard, 0, 1);
-        cardsGrid.Controls.Add(_ssdCard, 1, 1);
+        _cardsGrid.SizeChanged += (_, _) => ApplyCardsGridLayout();
 
         _statusLabel = new Label
         {
             Text = "Nenhum alerta crítico.",
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true,
             ForeColor = Color.FromArgb(170, 176, 184),
             Font = new Font("Segoe UI", 10, FontStyle.Bold, GraphicsUnit.Point)
         };
 
-        root.Controls.Add(header, 0, 0);
-        root.Controls.Add(cardsGrid, 0, 1);
+        root.Controls.Add(_headerLayout, 0, 0);
+        root.Controls.Add(_cardsGrid, 0, 1);
         root.Controls.Add(_statusLabel, 0, 2);
 
         Controls.Add(root);
+        ApplyResponsiveLayout();
+    }
+
+    private static void ConfigureActionButton(Button button, bool isPrimary)
+    {
+        button.Dock = DockStyle.Fill;
+        button.Height = 38;
+        button.MinimumSize = new Size(220, 38);
+        button.FlatStyle = FlatStyle.Flat;
+        button.ForeColor = Color.White;
+        button.BackColor = isPrimary
+            ? Color.FromArgb(0, 120, 212)
+            : Color.FromArgb(36, 41, 47);
+        button.UseVisualStyleBackColor = false;
+        button.TextAlign = ContentAlignment.MiddleCenter;
+        button.FlatAppearance.BorderColor = isPrimary
+            ? Color.FromArgb(64, 156, 255)
+            : Color.FromArgb(58, 66, 74);
+        button.FlatAppearance.MouseOverBackColor = isPrimary
+            ? Color.FromArgb(16, 137, 230)
+            : Color.FromArgb(44, 50, 57);
+        button.FlatAppearance.MouseDownBackColor = isPrimary
+            ? Color.FromArgb(0, 90, 158)
+            : Color.FromArgb(30, 34, 39);
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        if (_headerLayout == null || _cardsGrid == null)
+        {
+            return;
+        }
+
+        ApplyHeaderLayout();
+        ApplyCardsGridLayout();
+    }
+
+    private void ApplyHeaderLayout()
+    {
+        bool stackHeader = ShouldStackHeader();
+
+        if (_headerLayout.Controls.Count > 0 && _headerIsStacked == stackHeader)
+        {
+            return;
+        }
+
+        _headerIsStacked = stackHeader;
+
+        _headerLayout.SuspendLayout();
+        _headerLayout.Controls.Clear();
+        _headerLayout.ColumnStyles.Clear();
+        _headerLayout.RowStyles.Clear();
+
+        if (stackHeader)
+        {
+            _headerLayout.ColumnCount = 1;
+            _headerLayout.RowCount = 2;
+            _headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            _titleLayout.Margin = new Padding(0, 0, 0, 10);
+            _actionsLayout.Margin = new Padding(0);
+
+            ConfigureActionsLayout(useTwoColumns: true);
+            _headerLayout.Controls.Add(_titleLayout, 0, 0);
+            _headerLayout.Controls.Add(_actionsLayout, 0, 1);
+        }
+        else
+        {
+            _headerLayout.ColumnCount = 2;
+            _headerLayout.RowCount = 1;
+            _headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            _headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, HeaderActionsWidth));
+            _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            _titleLayout.Margin = new Padding(0);
+            _actionsLayout.Margin = new Padding(0);
+
+            ConfigureActionsLayout(useTwoColumns: false);
+            _headerLayout.Controls.Add(_titleLayout, 0, 0);
+            _headerLayout.Controls.Add(_actionsLayout, 1, 0);
+        }
+
+        _headerLayout.ResumeLayout(true);
+    }
+
+    private void ConfigureActionsLayout(bool useTwoColumns)
+    {
+        _actionsLayout.SuspendLayout();
+        _actionsLayout.Controls.Clear();
+        _actionsLayout.ColumnStyles.Clear();
+        _actionsLayout.RowStyles.Clear();
+
+        if (useTwoColumns)
+        {
+            _actionsLayout.ColumnCount = 2;
+            _actionsLayout.RowCount = 2;
+            _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+
+            AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 8, 8));
+            AddActionControl(_errorReportButton, 1, 0, new Padding(8, 0, 0, 8));
+            AddActionControl(_helpButton, 0, 1, new Padding(0, 0, 8, 0));
+            AddActionControl(_startupCheckBox, 1, 1, new Padding(8, 0, 0, 0));
+        }
+        else
+        {
+            _actionsLayout.ColumnCount = 1;
+            _actionsLayout.RowCount = 4;
+            _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+            for (int index = 0; index < 4; index++)
+            {
+                _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            }
+
+            AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 0, 8));
+            AddActionControl(_errorReportButton, 0, 1, new Padding(0, 0, 0, 8));
+            AddActionControl(_helpButton, 0, 2, new Padding(0, 0, 0, 8));
+            AddActionControl(_startupCheckBox, 0, 3, new Padding(0));
+        }
+
+        _actionsLayout.ResumeLayout(true);
+    }
+
+    private void AddActionControl(Control control, int column, int row, Padding margin)
+    {
+        control.Dock = DockStyle.Fill;
+        control.Margin = margin;
+        _actionsLayout.Controls.Add(control, column, row);
     }
 
     private void RefreshSnapshot()
@@ -303,6 +469,78 @@ class HardwareDashboardForm : Form
             _statusLabel.Text = $"Não foi possível ler os sensores: {ex.Message}";
             _statusLabel.ForeColor = Color.FromArgb(255, 185, 0);
         }
+    }
+
+    private void ApplyCardsGridLayout()
+    {
+        if (GetLayoutWidth(_cardsGrid) <= 0)
+        {
+            return;
+        }
+
+        bool stackCards = ShouldStackCards();
+
+        if (_cardsGrid.Controls.Count == 4 && _cardsAreStacked == stackCards)
+        {
+            ApplyMetricCardDensity(stackCards);
+            return;
+        }
+
+        _cardsAreStacked = stackCards;
+
+        _cardsGrid.SuspendLayout();
+        _cardsGrid.Controls.Clear();
+        _cardsGrid.ColumnStyles.Clear();
+        _cardsGrid.RowStyles.Clear();
+
+        if (stackCards)
+        {
+            _cardsGrid.ColumnCount = 1;
+            _cardsGrid.RowCount = 4;
+            _cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+            for (int index = 0; index < 4; index++)
+            {
+                _cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
+            }
+
+            AddMetricCard(_cpuCard, 0, 0, new Padding(0, 0, 0, 8), isCompact: true);
+            AddMetricCard(_gpuCard, 0, 1, new Padding(0, 8, 0, 8), isCompact: true);
+            AddMetricCard(_ramCard, 0, 2, new Padding(0, 8, 0, 8), isCompact: true);
+            AddMetricCard(_ssdCard, 0, 3, new Padding(0, 8, 0, 0), isCompact: true);
+        }
+        else
+        {
+            _cardsGrid.ColumnCount = 2;
+            _cardsGrid.RowCount = 2;
+            _cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            _cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+
+            AddMetricCard(_cpuCard, 0, 0, new Padding(0, 0, 8, 8), isCompact: false);
+            AddMetricCard(_gpuCard, 1, 0, new Padding(8, 0, 0, 8), isCompact: false);
+            AddMetricCard(_ramCard, 0, 1, new Padding(0, 8, 8, 0), isCompact: false);
+            AddMetricCard(_ssdCard, 1, 1, new Padding(8, 8, 0, 0), isCompact: false);
+        }
+
+        _cardsGrid.ResumeLayout(true);
+    }
+
+    private void AddMetricCard(MetricCard card, int column, int row, Padding margin, bool isCompact)
+    {
+        card.Dock = DockStyle.Fill;
+        card.Margin = margin;
+        card.SetCompactLayout(isCompact);
+        _cardsGrid.Controls.Add(card, column, row);
+    }
+
+    private void ApplyMetricCardDensity(bool isCompact)
+    {
+        _cpuCard.SetCompactLayout(isCompact);
+        _gpuCard.SetCompactLayout(isCompact);
+        _ramCard.SetCompactLayout(isCompact);
+        _ssdCard.SetCompactLayout(isCompact);
     }
 
     private void UpdateCards(MonitorSnapshot snapshot)
@@ -777,20 +1015,22 @@ class MetricCard : Panel
     private readonly Label _titleLabel;
     private readonly Label _primaryLabel;
     private readonly Label _secondaryLabel;
+    private string _secondaryText = "Aguardando leitura";
+    private bool _isCompactLayout;
 
     public MetricCard(string title)
     {
         Dock = DockStyle.Fill;
         Margin = new Padding(8);
-        Padding = new Padding(20, 18, 20, 18);
-        MinimumSize = new Size(0, 220);
+        Padding = new Padding(22, 20, 22, 20);
+        MinimumSize = new Size(0, 190);
         BackColor = Color.FromArgb(28, 31, 35);
 
         _titleLabel = new Label
         {
             Text = title,
             Dock = DockStyle.Top,
-            Height = 34,
+            Height = 38,
             ForeColor = Color.FromArgb(210, 214, 220),
             Font = new Font("Segoe UI", 11, FontStyle.Bold, GraphicsUnit.Point),
             TextAlign = ContentAlignment.MiddleLeft,
@@ -801,7 +1041,7 @@ class MetricCard : Panel
         {
             Text = "--",
             Dock = DockStyle.Top,
-            Height = 72,
+            Height = 82,
             ForeColor = SystemColors.Highlight,
             Font = new Font("Segoe UI", 28, FontStyle.Bold, GraphicsUnit.Point),
             TextAlign = ContentAlignment.MiddleLeft,
@@ -829,17 +1069,61 @@ class MetricCard : Panel
         _primaryLabel.Text = string.IsNullOrWhiteSpace(primary) ? "--" : primary;
         _primaryLabel.ForeColor = accent;
 
-        _secondaryLabel.Text = FormatSecondaryText(secondary);
+        _secondaryText = string.IsNullOrWhiteSpace(secondary)
+            ? "Informação não disponível"
+            : secondary;
+
+        UpdateSecondaryLabel();
     }
 
-    private static string FormatSecondaryText(string text)
+    public void SetCompactLayout(bool isCompact)
+    {
+        if (_isCompactLayout == isCompact)
+        {
+            return;
+        }
+
+        _isCompactLayout = isCompact;
+
+        if (isCompact)
+        {
+            Padding = new Padding(14, 10, 14, 10);
+            MinimumSize = new Size(0, 118);
+            _titleLabel.Height = 22;
+            _primaryLabel.Height = 40;
+            _titleLabel.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold, GraphicsUnit.Point);
+            _primaryLabel.Font = new Font("Segoe UI", 20, FontStyle.Bold, GraphicsUnit.Point);
+            _secondaryLabel.Font = new Font("Segoe UI", 9, FontStyle.Regular, GraphicsUnit.Point);
+        }
+        else
+        {
+            Padding = new Padding(22, 20, 22, 20);
+            MinimumSize = new Size(0, 190);
+            _titleLabel.Height = 38;
+            _primaryLabel.Height = 82;
+            _titleLabel.Font = new Font("Segoe UI", 11, FontStyle.Bold, GraphicsUnit.Point);
+            _primaryLabel.Font = new Font("Segoe UI", 28, FontStyle.Bold, GraphicsUnit.Point);
+            _secondaryLabel.Font = new Font("Segoe UI", 10.5f, FontStyle.Regular, GraphicsUnit.Point);
+        }
+
+        UpdateSecondaryLabel();
+    }
+
+    private void UpdateSecondaryLabel()
+    {
+        _secondaryLabel.Text = FormatSecondaryText(_secondaryText, stackLines: !_isCompactLayout);
+    }
+
+    private static string FormatSecondaryText(string text, bool stackLines)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
             return "Informação não disponível";
         }
 
-        return text.Replace(" | ", Environment.NewLine);
+        return stackLines
+            ? text.Replace(" | ", Environment.NewLine)
+            : text;
     }
 }
 
