@@ -111,6 +111,12 @@ class HardwareDashboardForm : Form
         };
     }
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        WindowThemeService.ApplyNativeTitleBarTheme(Handle);
+    }
+
     private void HardwareDashboardFormClosing(object? sender, FormClosingEventArgs e)
     {
         if (e.CloseReason != CloseReason.UserClosing)
@@ -1127,6 +1133,7 @@ class HardwareDashboardForm : Form
 
         return version;
     }
+
     private static bool IsRunningAsAdministrator()
     {
         using WindowsIdentity identity = WindowsIdentity.GetCurrent();
