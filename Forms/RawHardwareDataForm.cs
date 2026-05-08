@@ -23,6 +23,7 @@ class RawHardwareDataForm : Form
     private readonly DataGridView _grid;
     private readonly Label _footerLabel;
     private readonly Button _refreshButton;
+    private readonly Button _monitorSensorButton;
     private readonly Button _closeButton;
     private DateTime? _lastUpdatedAt;
     private bool _isFilteringByHardware;
@@ -91,6 +92,10 @@ class RawHardwareDataForm : Form
         ConfigureActionButton(_refreshButton);
         _refreshButton.Click += (_, _) => RefreshData();
 
+        _monitorSensorButton = new Button { Text = "Monitorar sensor" };
+        ConfigureActionButton(_monitorSensorButton);
+        _monitorSensorButton.Click += (_, _) => OpenSelectedSensorMonitor();
+
         header.Controls.Add(titleLabel, 0, 0);
         header.Controls.Add(_refreshButton, 1, 0);
 
@@ -156,6 +161,7 @@ class RawHardwareDataForm : Form
         _closeButton.Click += (_, _) => Close();
 
         buttons.Controls.Add(_closeButton);
+        buttons.Controls.Add(_monitorSensorButton);
 
         root.Controls.Add(header, 0, 0);
         root.Controls.Add(buttons, 0, 1);
@@ -293,6 +299,31 @@ class RawHardwareDataForm : Form
             _refreshButton.Text = "Atualizar";
             _refreshButton.Enabled = true;
         }
+    }
+
+    private void OpenSelectedSensorMonitor()
+    {
+        if (_grid.CurrentRow?.DataBoundItem is not RawHardwareRow row)
+        {
+            MessageBox.Show(
+                "Selecione uma linha para monitorar o sensor.",
+                "Dados brutos do hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return;
+        }
+
+        SensorLiveMonitorForm sensorMonitorForm = new SensorLiveMonitorForm(
+            _hardwareMonitor,
+            row.Hardware,
+            row.HardwareType,
+            row.HardwareIdentifier,
+            row.SensorName,
+            row.SensorType,
+            row.SensorIdentifier,
+            _ownedIcon);
+
+        sensorMonitorForm.Show(this);
     }
 
     private void UpdateFooter(int totalSensors)
