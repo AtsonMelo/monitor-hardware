@@ -449,7 +449,7 @@ class HardwareDashboardForm : Form
             _actionsLayout.Margin = new Padding(0);
             _headerButtonsPanel.Margin = new Padding(0, 0, 0, 10);
 
-            ConfigureActionsLayout(useTwoColumns: false);
+            ConfigureActionsLayout(useTwoColumns: true);
             ConfigureHeaderButtonsPanel();
             _headerLayout.Controls.Add(BuildHeaderTopRow(), 0, 0);
             _headerLayout.Controls.Add(_actionsLayout, 0, 1);
@@ -511,7 +511,7 @@ class HardwareDashboardForm : Form
             AddActionControl(_sensorsButton, 1, 0, new Padding(8, 0, 0, 8));
             AddActionControl(_sensorOriginsButton, 0, 1, new Padding(0, 0, 8, 8));
             AddActionControl(_errorReportButton, 1, 1, new Padding(8, 0, 0, 8));
-            AddActionControl(_startupCheckBox, 0, 2, new Padding(0, 0, 0, 0));
+            AddActionControl(_startupCheckBox, 0, 2, new Padding(0, 2, 0, 0), columnSpan: 2);
         }
         else
         {
@@ -534,12 +534,12 @@ class HardwareDashboardForm : Form
         _actionsLayout.ResumeLayout(true);
     }
 
-    private void AddActionControl(Control control, int column, int row, Padding margin)
+    private void AddActionControl(Control control, int column, int row, Padding margin, int columnSpan = 1)
     {
         control.Dock = DockStyle.Fill;
         control.Margin = margin;
         _actionsLayout.Controls.Add(control, column, row);
-        _actionsLayout.SetColumnSpan(control, 1);
+        _actionsLayout.SetColumnSpan(control, columnSpan);
     }
 
     private void OpenSensorsDetails()
