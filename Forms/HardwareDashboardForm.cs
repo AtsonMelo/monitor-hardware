@@ -1787,9 +1787,39 @@ class HardwareDashboardForm : Form
 
                     try
                     {
-                        await _updateService.StartUpdateAsync(result, progress);
-                        AppLogService.Info($"Atualização iniciada na pasta: {AppContext.BaseDirectory}");
-                        Application.Exit();
+                                                await _updateService.StartUpdateAsync(result, progress);
+
+                        string? downloadedExecutable = TryFindDownloadedUpdateExecutable(result.LatestVersion);
+
+                        if (!string.IsNullOrWhiteSpace(downloadedExecutable))
+                        {
+                            AppLogService.Info($"Atualização baixada. Abrindo executável extraído: {downloadedExecutable}");
+
+                            MessageBox.Show(
+                                $"Atualização baixada com sucesso.\n\nO Monitor Hardware será reaberto pela versão baixada em:\n{downloadedExecutable}",
+                                "Atualização baixada",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Information);
+
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = downloadedExecutable,
+                                Arguments = "--gui",
+                                UseShellExecute = true
+                            });
+
+                            Application.Exit();
+                        }
+                        else
+                        {
+                            AppLogService.Info($"Atualização baixada, mas executável extraído não foi encontrado. Pasta atual: {AppContext.BaseDirectory}");
+
+                            MessageBox.Show(
+                                "A atualização foi baixada, mas o executável extraído não foi localizado.\n\nAbra a pasta de atualizações em AppData\\Local\\MonitorHardware\\updates e execute manualmente a versão mais recente.",
+                                "Atualização baixada",
+                                MessageBoxButtons.OK,
+                                MessageBoxIcon.Warning);
+                        }
                     }
                     catch (Exception updateEx)
                     {
@@ -1840,6 +1870,33 @@ class HardwareDashboardForm : Form
         }
     }
 
+    private static string? TryFindDownloadedUpdateExecutable(object? latestVersion)
+    {
+        string versionText = Convert.ToString(latestVersion) ?? string.Empty;
+        versionText = versionText.Trim();
+
+        if (versionText.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+        {
+            versionText = versionText[1..];
+        }
+
+        if (string.IsNullOrWhiteSpace(versionText))
+        {
+            return null;
+        }
+
+        string updateExecutablePath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "MonitorHardware",
+            "updates",
+            versionText,
+            "extracted",
+            "monitor-hardware.exe");
+
+        return System.IO.File.Exists(updateExecutablePath)
+            ? updateExecutablePath
+            : null;
+    }
     private ContextMenuStrip BuildHelpMenu()
     {
         ContextMenuStrip menu = new ContextMenuStrip();
@@ -2890,5 +2947,6 @@ class RollingHistory
         _values.Clear();
     }
 }
+
 
 

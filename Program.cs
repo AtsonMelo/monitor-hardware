@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -117,6 +117,12 @@ class Program
         bool isGraphicalMode = args.Contains("--gui") || args.Contains("--tray");
 
         AppLogService.Info($"App iniciado. Args: {string.Join(" ", args)}");
+        if (args.Any(arg => arg.Equals("--version", StringComparison.OrdinalIgnoreCase)))
+        {
+            AttachParentConsole();
+            Console.WriteLine(GetAppVersion());
+            return;
+        }
 
         if (isGraphicalMode && !TryAcquireSingleInstance())
         {
@@ -512,6 +518,26 @@ class Program
             : "=== Monitor de Hardware - Resumo ===";
     }
 
+    private static string GetAppVersion()
+    {
+        string version =
+            typeof(Program).Assembly
+                .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+                .FirstOrDefault()
+                ?.InformationalVersion
+            ?? typeof(Program).Assembly.GetName().Version?.ToString()
+            ?? "desconhecida";
+
+        int metadataIndex = version.IndexOf('+');
+
+        if (metadataIndex > 0)
+        {
+            version = version[..metadataIndex];
+        }
+
+        return version;
+    }
     private static void AttachParentConsole()
     {
         AttachConsole(ATTACH_PARENT_PROCESS);
@@ -570,4 +596,5 @@ class Program
 
     private const int ATTACH_PARENT_PROCESS = -1;
 }
+
 
