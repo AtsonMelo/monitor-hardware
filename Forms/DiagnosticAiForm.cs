@@ -28,7 +28,7 @@ class DiagnosticAiForm : Form
             AutoSize = true,
             ForeColor = Color.FromArgb(230, 233, 236),
             Font = new Font("Segoe UI", 12f, FontStyle.Bold, GraphicsUnit.Point),
-            Text = "O diagnóstico por IA será baseado nos sensores coletados."
+            Text = "Diagnóstico por IA será implementado futuramente. Esta tela mostra os dados que serão usados no diagnóstico."
         };
 
         _summaryLabel = new Label
