@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
+using System.Numerics;
 using System.Linq;
 using System.Windows.Forms;
 using LibreHardwareMonitor.Hardware;
@@ -27,6 +28,7 @@ class SensorLiveMonitorForm : Form
     private readonly Button _refreshButton;
     private readonly Button _closeButton;
     private readonly Dictionary<string, Label> _valueLabels = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Label> _bitLabels = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _hardwareName;
     private readonly string _hardwareType;
     private readonly string _hardwareIdentifier;
@@ -41,6 +43,7 @@ class SensorLiveMonitorForm : Form
     private float? _currentDelta;
     private DateTime? _lastUpdatedAt;
     private int _sampleCount;
+    private uint? _previousFloatBits;
 
     public SensorLiveMonitorForm(
         HardwareMonitorService hardwareMonitor,
@@ -81,11 +84,12 @@ class SensorLiveMonitorForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 4,
+            RowCount = 5,
             Padding = new Padding(18),
             BackColor = WindowBackground
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -102,6 +106,7 @@ class SensorLiveMonitorForm : Form
         };
 
         TableLayoutPanel summary = BuildSummaryPanel();
+        TableLayoutPanel bitInspector = BuildBitInspectorPanel();
 
         _historyGrid = new DataGridView
         {
@@ -168,8 +173,9 @@ class SensorLiveMonitorForm : Form
 
         root.Controls.Add(title, 0, 0);
         root.Controls.Add(summary, 0, 1);
-        root.Controls.Add(_historyGrid, 0, 2);
-        root.Controls.Add(BuildBottomPanel(buttons), 0, 3);
+        root.Controls.Add(bitInspector, 0, 2);
+        root.Controls.Add(_historyGrid, 0, 3);
+        root.Controls.Add(BuildBottomPanel(buttons), 0, 4);
 
         Controls.Add(root);
 
@@ -227,6 +233,47 @@ class SensorLiveMonitorForm : Form
         _valueLabels["samples"] = AddDynamicSummaryRow(panel, 11, "Total de amostras");
 
         return panel;
+    }
+
+    private TableLayoutPanel BuildBitInspectorPanel()
+    {
+        TableLayoutPanel panel = new()
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 2,
+            RowCount = 10,
+            BackColor = WindowBackground,
+            Margin = new Padding(0, 0, 0, 12)
+        };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+        Label sectionTitle = BuildLabel("Representação do valor em bits", true);
+        panel.Controls.Add(sectionTitle, 0, 0);
+        panel.SetColumnSpan(sectionTitle, 2);
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        AddBitRow(panel, 1, "Float32 HEX");
+        AddBitRow(panel, 2, "Float32 binário");
+        AddBitRow(panel, 3, "Sinal");
+        AddBitRow(panel, 4, "Expoente");
+        AddBitRow(panel, 5, "Mantissa");
+        AddBitRow(panel, 6, "Máscara XOR desde leitura anterior");
+        AddBitRow(panel, 7, "Bits alterados desde leitura anterior");
+        AddBitRow(panel, 8, "Valor inteiro arredondado");
+        AddBitRow(panel, 9, "Inteiro em binário");
+
+        return panel;
+    }
+
+    private void AddBitRow(TableLayoutPanel panel, int row, string label)
+    {
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.Controls.Add(BuildLabel(label, true), 0, row);
+        Label valueLabel = BuildLabel("--", false);
+        panel.Controls.Add(valueLabel, 1, row);
+        _bitLabels[label] = valueLabel;
     }
 
     private static Panel BuildBottomPanel(Control inner)
@@ -375,6 +422,7 @@ class SensorLiveMonitorForm : Form
             _valueLabels["max"].Text = "--";
             _valueLabels["delta"].Text = "--";
             _valueLabels["samples"].Text = _sampleCount.ToString(CultureInfo.CurrentCulture);
+            SetBitFieldsToMissing();
             return;
         }
 
@@ -398,6 +446,7 @@ class SensorLiveMonitorForm : Form
         _valueLabels["delta"].Text = FormatRawValue(delta);
         _valueLabels["samples"].Text = _sampleCount.ToString(CultureInfo.CurrentCulture);
         _statusLabel.Text = $"Última atualização: {timestamp}";
+        UpdateBitInspector(reading.Value);
 
         _history.Insert(0, new SensorSampleRow
         {
@@ -456,6 +505,106 @@ class SensorLiveMonitorForm : Form
         };
 
         return string.IsNullOrWhiteSpace(unit) ? formattedValue : $"{formattedValue} {unit}";
+    }
+
+    private void UpdateBitInspector(float? value)
+    {
+        _bitLabels["Float32 HEX"].Text = FormatFloatHex(value);
+        _bitLabels["Float32 binário"].Text = FormatFloatBinary(value);
+        _bitLabels["Sinal"].Text = FormatFloatSign(value);
+        _bitLabels["Expoente"].Text = FormatFloatExponent(value);
+        _bitLabels["Mantissa"].Text = FormatFloatMantissa(value);
+        _bitLabels["Máscara XOR desde leitura anterior"].Text = FormatXorMask(value, _previousFloatBits);
+        _bitLabels["Bits alterados desde leitura anterior"].Text = CountChangedBits(value, _previousFloatBits).ToString(CultureInfo.CurrentCulture);
+        _bitLabels["Valor inteiro arredondado"].Text = FormatRoundedInteger(value);
+        _bitLabels["Inteiro em binário"].Text = FormatRoundedIntegerBinary(value);
+
+        if (value.HasValue)
+        {
+            _previousFloatBits = GetFloatBits(value.Value);
+        }
+    }
+
+    private void SetBitFieldsToMissing()
+    {
+        foreach (Label label in _bitLabels.Values)
+        {
+            label.Text = "--";
+        }
+    }
+
+    private static uint GetFloatBits(float value) => BitConverter.SingleToUInt32Bits(value);
+
+    private static string FormatFloatHex(float? value)
+    {
+        return value.HasValue ? $"0x{GetFloatBits(value.Value):X8}" : "--";
+    }
+
+    private static string FormatFloatBinary(float? value)
+    {
+        if (!value.HasValue)
+        {
+            return "--";
+        }
+
+        uint bits = GetFloatBits(value.Value);
+        string sign = ((bits >> 31) & 1u).ToString(CultureInfo.CurrentCulture);
+        string exponent = Convert.ToString((int)((bits >> 23) & 0xFFu), 2).PadLeft(8, '0');
+        string mantissa = Convert.ToString((int)(bits & 0x7FFFFFu), 2).PadLeft(23, '0');
+        return $"{sign} | {exponent} | {mantissa}";
+    }
+
+    private static string FormatFloatSign(float? value)
+    {
+        return value.HasValue ? ((GetFloatBits(value.Value) >> 31) & 1u).ToString(CultureInfo.CurrentCulture) : "--";
+    }
+
+    private static string FormatFloatExponent(float? value)
+    {
+        return value.HasValue ? Convert.ToString((int)((GetFloatBits(value.Value) >> 23) & 0xFFu), 2).PadLeft(8, '0') : "--";
+    }
+
+    private static string FormatFloatMantissa(float? value)
+    {
+        return value.HasValue ? Convert.ToString((int)(GetFloatBits(value.Value) & 0x7FFFFFu), 2).PadLeft(23, '0') : "--";
+    }
+
+    private static string FormatXorMask(float? current, uint? previousBits)
+    {
+        if (!current.HasValue || !previousBits.HasValue)
+        {
+            return "--";
+        }
+
+        uint xor = GetFloatBits(current.Value) ^ previousBits.Value;
+        return $"0x{xor:X8}";
+    }
+
+    private static int CountChangedBits(float? current, uint? previousBits)
+    {
+        if (!current.HasValue || !previousBits.HasValue)
+        {
+            return 0;
+        }
+
+        uint xor = GetFloatBits(current.Value) ^ previousBits.Value;
+        return BitOperations.PopCount(xor);
+    }
+
+    private static string FormatRoundedInteger(float? value)
+    {
+        return value.HasValue ? Math.Round(value.Value).ToString("0", CultureInfo.CurrentCulture) : "--";
+    }
+
+    private static string FormatRoundedIntegerBinary(float? value)
+    {
+        if (!value.HasValue)
+        {
+            return "--";
+        }
+
+        long rounded = (long)Math.Round(value.Value);
+        return Convert.ToString(rounded, 2);
     }
 
     private sealed class SensorSampleRow
