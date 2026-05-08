@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Numerics;
 using System.Linq;
+using System.Threading;
 using System.Windows.Forms;
 using LibreHardwareMonitor.Hardware;
 
@@ -23,12 +24,20 @@ class SensorLiveMonitorForm : Form
     private readonly Icon? _ownedIcon;
     private readonly BindingList<SensorSampleRow> _history = new();
     private readonly DataGridView _historyGrid;
+    private readonly Panel _contentHost;
+    private readonly Panel _summaryView;
+    private readonly Panel _bitsView;
+    private readonly Panel _historyView;
+    private readonly Button _summaryTabButton;
+    private readonly Button _bitsTabButton;
+    private readonly Button _historyTabButton;
     private readonly Label _statusLabel;
     private readonly Button _pauseButton;
     private readonly Button _refreshButton;
     private readonly Button _closeButton;
     private readonly Dictionary<string, Label> _valueLabels = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Label> _bitLabels = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, RichTextBox> _bitRichTextBoxes = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _hardwareName;
     private readonly string _hardwareType;
     private readonly string _hardwareIdentifier;
@@ -36,6 +45,7 @@ class SensorLiveMonitorForm : Form
     private readonly string _sensorType;
     private readonly string _sensorIdentifier;
     private bool _isPaused;
+    private int _isRefreshing;
     private float? _lastValue;
     private float? _currentValue;
     private float? _currentMin;
@@ -84,12 +94,11 @@ class SensorLiveMonitorForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
-            RowCount = 5,
+            RowCount = 4,
             Padding = new Padding(18),
             BackColor = WindowBackground
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -105,14 +114,11 @@ class SensorLiveMonitorForm : Form
             AutoEllipsis = true
         };
 
-        TableLayoutPanel summary = BuildSummaryPanel();
-        TableLayoutPanel bitInspector = BuildBitInspectorPanel();
-
         _historyGrid = new DataGridView
         {
             Dock = DockStyle.Fill,
             BackgroundColor = PanelBackground,
-            BorderStyle = BorderStyle.FixedSingle,
+            BorderStyle = BorderStyle.None,
             AutoGenerateColumns = false,
             ReadOnly = true,
             AllowUserToAddRows = false,
@@ -123,6 +129,8 @@ class SensorLiveMonitorForm : Form
             RowHeadersVisible = false,
             EnableHeadersVisualStyles = false,
             GridColor = Color.FromArgb(52, 60, 69),
+            ScrollBars = ScrollBars.Vertical,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             ColumnHeadersDefaultCellStyle = BuildHeaderStyle(),
             DefaultCellStyle = BuildCellStyle(),
             AlternatingRowsDefaultCellStyle = BuildAlternatingStyle()
@@ -134,6 +142,16 @@ class SensorLiveMonitorForm : Form
         _historyGrid.Columns.Add(CreateTextColumn("Máximo", nameof(SensorSampleRow.Max)));
         _historyGrid.Columns.Add(CreateTextColumn("Delta", nameof(SensorSampleRow.Delta)));
         _historyGrid.DataSource = _history;
+        _summaryView = BuildContentScrollHost(BuildSummaryPanel());
+        _bitsView = BuildContentScrollHost(BuildBitInspectorPanel());
+        _historyView = BuildHistoryGridHost();
+        _contentHost = BuildContentHost(_summaryView, _bitsView, _historyView);
+        _summaryTabButton = BuildTabButton("Resumo");
+        _bitsTabButton = BuildTabButton("Bits");
+        _historyTabButton = BuildTabButton("Histórico");
+        _summaryTabButton.Click += (_, _) => ShowView(_summaryView, _summaryTabButton);
+        _bitsTabButton.Click += (_, _) => ShowView(_bitsView, _bitsTabButton);
+        _historyTabButton.Click += (_, _) => ShowView(_historyView, _historyTabButton);
 
         FlowLayoutPanel buttons = new()
         {
@@ -172,12 +190,12 @@ class SensorLiveMonitorForm : Form
         };
 
         root.Controls.Add(title, 0, 0);
-        root.Controls.Add(summary, 0, 1);
-        root.Controls.Add(bitInspector, 0, 2);
-        root.Controls.Add(_historyGrid, 0, 3);
-        root.Controls.Add(BuildBottomPanel(buttons), 0, 4);
+        root.Controls.Add(BuildTabBar(), 0, 1);
+        root.Controls.Add(_contentHost, 0, 2);
+        root.Controls.Add(BuildBottomPanel(buttons), 0, 3);
 
         Controls.Add(root);
+        ShowView(_summaryView, _summaryTabButton);
 
         Shown += async (_, _) =>
         {
@@ -185,6 +203,7 @@ class SensorLiveMonitorForm : Form
             await RefreshSensorAsync();
         };
         _timer.Tick += async (_, _) => await RefreshSensorAsync();
+        FormClosing += (_, _) => _timer.Stop();
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -204,6 +223,123 @@ class SensorLiveMonitorForm : Form
         base.Dispose(disposing);
     }
 
+    private Panel BuildTabBar()
+    {
+        FlowLayoutPanel bar = new()
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            WrapContents = false,
+            FlowDirection = FlowDirection.LeftToRight,
+            BackColor = WindowBackground,
+            Margin = new Padding(0, 0, 0, 12),
+            Padding = new Padding(0)
+        };
+
+        bar.Controls.Add(_summaryTabButton);
+        bar.Controls.Add(_bitsTabButton);
+        bar.Controls.Add(_historyTabButton);
+
+        Panel host = new()
+        {
+            Dock = DockStyle.Fill,
+            BackColor = WindowBackground,
+            Margin = new Padding(0)
+        };
+        host.Controls.Add(bar);
+        return host;
+    }
+
+    private Panel BuildContentHost(params Control[] views)
+    {
+        Panel host = new()
+        {
+            Dock = DockStyle.Fill,
+            BackColor = WindowBackground,
+            Margin = new Padding(0)
+        };
+
+        foreach (Control view in views)
+        {
+            view.Dock = DockStyle.Fill;
+            view.Visible = false;
+            host.Controls.Add(view);
+        }
+
+        return host;
+    }
+
+    private static Panel BuildContentScrollHost(Control content)
+    {
+        Panel host = new()
+        {
+            Dock = DockStyle.Fill,
+            BackColor = WindowBackground,
+            Padding = new Padding(0),
+            Margin = new Padding(0)
+        };
+
+        content.Dock = DockStyle.Fill;
+        host.Controls.Add(content);
+        return host;
+    }
+
+    private Button BuildTabButton(string text)
+    {
+        Button button = new()
+        {
+            Text = text,
+            AutoSize = false,
+            Height = 38,
+            MinimumSize = new Size(120, 38),
+            Margin = new Padding(0, 0, 8, 0),
+            Padding = new Padding(16, 0, 16, 0),
+            FlatStyle = FlatStyle.Flat,
+            BackColor = ButtonBackground,
+            ForeColor = Color.FromArgb(194, 199, 206),
+            UseVisualStyleBackColor = false
+        };
+        button.FlatAppearance.BorderColor = ButtonBorder;
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(44, 50, 57);
+        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 34, 39);
+        button.FlatAppearance.BorderSize = 1;
+        return button;
+    }
+
+    private void ShowView(Control viewToShow, Button activeButton)
+    {
+        foreach (Control child in _contentHost.Controls)
+        {
+            child.Visible = ReferenceEquals(child, viewToShow);
+        }
+
+        UpdateTabButtonState(_summaryTabButton, ReferenceEquals(activeButton, _summaryTabButton));
+        UpdateTabButtonState(_bitsTabButton, ReferenceEquals(activeButton, _bitsTabButton));
+        UpdateTabButtonState(_historyTabButton, ReferenceEquals(activeButton, _historyTabButton));
+    }
+
+    private static void UpdateTabButtonState(Button button, bool isActive)
+    {
+        button.BackColor = isActive ? Color.FromArgb(39, 44, 50) : ButtonBackground;
+        button.ForeColor = isActive ? MainText : Color.FromArgb(194, 199, 206);
+        button.FlatAppearance.BorderColor = isActive ? Color.FromArgb(0, 120, 212) : ButtonBorder;
+    }
+
+    private Panel BuildHistoryGridHost()
+    {
+        Panel host = new()
+        {
+            Dock = DockStyle.Fill,
+            BackColor = WindowBackground,
+            Padding = new Padding(0),
+            Margin = new Padding(0)
+        };
+
+        _historyGrid.Dock = DockStyle.Fill;
+        host.Controls.Add(_historyGrid);
+        return host;
+    }
+
     private TableLayoutPanel BuildSummaryPanel()
     {
         TableLayoutPanel panel = new()
@@ -212,25 +348,25 @@ class SensorLiveMonitorForm : Form
             AutoSize = true,
             ColumnCount = 2,
             RowCount = 12,
-            BackColor = WindowBackground,
-            Margin = new Padding(0, 0, 0, 12)
+            BackColor = PanelBackground,
+            Margin = new Padding(0)
         };
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
         AddSummaryRow(panel, 0, "Hardware", _hardwareName);
-        AddSummaryRow(panel, 1, "Tipo de hardware", _hardwareType);
+        AddSummaryRow(panel, 1, "Hardware tipo", _hardwareType);
         AddSummaryRow(panel, 2, "Sensor", _sensorName);
-        AddSummaryRow(panel, 3, "Tipo de sensor", _sensorType);
-        AddSummaryRow(panel, 4, "Identificador do sensor", _sensorIdentifier);
+        AddSummaryRow(panel, 3, "Sensor tipo", _sensorType);
+        AddSummaryRow(panel, 4, "Sensor ID", _sensorIdentifier);
         AddSummaryRow(panel, 5, "Última atualização", "--");
 
-        _valueLabels["value"] = AddDynamicSummaryRow(panel, 6, "Valor atual bruto");
-        _valueLabels["formatted"] = AddDynamicSummaryRow(panel, 7, "Valor atual formatado");
+        _valueLabels["value"] = AddDynamicSummaryRow(panel, 6, "Valor bruto");
+        _valueLabels["formatted"] = AddDynamicSummaryRow(panel, 7, "Valor formatado");
         _valueLabels["min"] = AddDynamicSummaryRow(panel, 8, "Mínimo");
         _valueLabels["max"] = AddDynamicSummaryRow(panel, 9, "Máximo");
-        _valueLabels["delta"] = AddDynamicSummaryRow(panel, 10, "Delta desde a leitura anterior");
-        _valueLabels["samples"] = AddDynamicSummaryRow(panel, 11, "Total de amostras");
+        _valueLabels["delta"] = AddDynamicSummaryRow(panel, 10, "Delta");
+        _valueLabels["samples"] = AddDynamicSummaryRow(panel, 11, "Amostras");
 
         return panel;
     }
@@ -242,14 +378,14 @@ class SensorLiveMonitorForm : Form
             Dock = DockStyle.Top,
             AutoSize = true,
             ColumnCount = 2,
-            RowCount = 10,
-            BackColor = WindowBackground,
-            Margin = new Padding(0, 0, 0, 12)
+            RowCount = 11,
+            BackColor = PanelBackground,
+            Margin = new Padding(0)
         };
-        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
         panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-        Label sectionTitle = BuildLabel("Representação do valor em bits", true);
+        Label sectionTitle = BuildSectionLabel("Bits destacados");
         panel.Controls.Add(sectionTitle, 0, 0);
         panel.SetColumnSpan(sectionTitle, 2);
         panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -259,10 +395,11 @@ class SensorLiveMonitorForm : Form
         AddBitRow(panel, 3, "Sinal");
         AddBitRow(panel, 4, "Expoente");
         AddBitRow(panel, 5, "Mantissa");
-        AddBitRow(panel, 6, "Máscara XOR desde leitura anterior");
-        AddBitRow(panel, 7, "Bits alterados desde leitura anterior");
-        AddBitRow(panel, 8, "Valor inteiro arredondado");
-        AddBitRow(panel, 9, "Inteiro em binário");
+        AddBitRow(panel, 6, "Máscara XOR");
+        AddBitHighlightedRow(panel, 7, "Bits destacados");
+        AddBitRow(panel, 8, "Bits alterados");
+        AddBitRow(panel, 9, "Inteiro arredondado");
+        AddBitRow(panel, 10, "Inteiro binário");
 
         return panel;
     }
@@ -274,6 +411,35 @@ class SensorLiveMonitorForm : Form
         Label valueLabel = BuildLabel("--", false);
         panel.Controls.Add(valueLabel, 1, row);
         _bitLabels[label] = valueLabel;
+    }
+
+    private void AddBitHighlightedRow(TableLayoutPanel panel, int row, string label)
+    {
+        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+        panel.Controls.Add(BuildLabel(label, true), 0, row);
+        RichTextBox valueBox = BuildBitRichTextBox();
+        panel.Controls.Add(valueBox, 1, row);
+        _bitRichTextBoxes[label] = valueBox;
+    }
+
+    private static RichTextBox BuildBitRichTextBox()
+    {
+        return new RichTextBox
+        {
+            Dock = DockStyle.Fill,
+            ReadOnly = true,
+            BorderStyle = BorderStyle.None,
+            BackColor = PanelBackground,
+            ForeColor = MainText,
+            Font = new Font("Consolas", 9.25f, FontStyle.Regular, GraphicsUnit.Point),
+            WordWrap = false,
+            ScrollBars = RichTextBoxScrollBars.None,
+            ShortcutsEnabled = false,
+            DetectUrls = false,
+            HideSelection = true,
+            TabStop = false,
+            Text = "--"
+        };
     }
 
     private static Panel BuildBottomPanel(Control inner)
@@ -320,6 +486,23 @@ class SensorLiveMonitorForm : Form
             Font = isTitle
                 ? new Font("Segoe UI", 9.25f, FontStyle.Bold, GraphicsUnit.Point)
                 : new Font("Segoe UI", 9.25f, FontStyle.Regular, GraphicsUnit.Point)
+        };
+    }
+
+    private static Label BuildSectionLabel(string text)
+    {
+        return new Label
+        {
+            Text = text,
+            Dock = DockStyle.Fill,
+            AutoEllipsis = true,
+            ForeColor = MainText,
+            BackColor = PanelBackground,
+            Padding = new Padding(10, 8, 10, 8),
+            Margin = new Padding(0),
+            Height = 34,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold, GraphicsUnit.Point)
         };
     }
 
@@ -370,7 +553,7 @@ class SensorLiveMonitorForm : Form
     {
         HeaderText = headerText,
         DataPropertyName = propertyName,
-        AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells,
+        AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
         MinimumWidth = 110,
         SortMode = DataGridViewColumnSortMode.NotSortable
     };
@@ -386,14 +569,19 @@ class SensorLiveMonitorForm : Form
 
     private async Task RefreshSensorAsync()
     {
-        if (_isPaused)
+        if (_isPaused || Interlocked.CompareExchange(ref _isRefreshing, 1, 0) != 0)
         {
             return;
         }
 
-        await Task.Run(() =>
+        try
         {
-            List<SensorReading> readings = _hardwareMonitor.ReadAllSensors();
+            List<SensorReading> readings = await Task.Run(() => _hardwareMonitor.ReadAllSensors());
+            if (_isPaused || IsDisposed)
+            {
+                return;
+            }
+
             SensorReading? reading = readings.FirstOrDefault(sensor =>
                 sensor.HardwareType.ToString().Equals(_hardwareType, StringComparison.OrdinalIgnoreCase) &&
                 sensor.HardwareName.Equals(_hardwareName, StringComparison.OrdinalIgnoreCase) &&
@@ -402,8 +590,15 @@ class SensorLiveMonitorForm : Form
                 sensor.SensorName.Equals(_sensorName, StringComparison.OrdinalIgnoreCase) &&
                 sensor.SensorIdentifier.Equals(_sensorIdentifier, StringComparison.OrdinalIgnoreCase));
 
-            BeginInvoke(new Action(() => ApplyReading(reading)));
-        });
+            if (IsHandleCreated && !IsDisposed)
+            {
+                BeginInvoke(new Action(() => ApplyReading(reading)));
+            }
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isRefreshing, 0);
+        }
     }
 
     private void ApplyReading(SensorReading? reading)
@@ -462,6 +657,9 @@ class SensorLiveMonitorForm : Form
         {
             _history.RemoveAt(_history.Count - 1);
         }
+
+        _history.ResetBindings();
+        _historyGrid.Refresh();
     }
 
     private static string FormatRawValue(float? value)
@@ -514,10 +712,11 @@ class SensorLiveMonitorForm : Form
         _bitLabels["Sinal"].Text = FormatFloatSign(value);
         _bitLabels["Expoente"].Text = FormatFloatExponent(value);
         _bitLabels["Mantissa"].Text = FormatFloatMantissa(value);
-        _bitLabels["Máscara XOR desde leitura anterior"].Text = FormatXorMask(value, _previousFloatBits);
-        _bitLabels["Bits alterados desde leitura anterior"].Text = CountChangedBits(value, _previousFloatBits).ToString(CultureInfo.CurrentCulture);
-        _bitLabels["Valor inteiro arredondado"].Text = FormatRoundedInteger(value);
-        _bitLabels["Inteiro em binário"].Text = FormatRoundedIntegerBinary(value);
+        _bitLabels["Máscara XOR"].Text = FormatXorMask(value, _previousFloatBits);
+        _bitLabels["Bits alterados"].Text = CountChangedBits(value, _previousFloatBits).ToString(CultureInfo.CurrentCulture);
+        _bitLabels["Inteiro arredondado"].Text = FormatRoundedInteger(value);
+        _bitLabels["Inteiro binário"].Text = FormatRoundedIntegerBinary(value);
+        UpdateHighlightedBits(value, _previousFloatBits);
 
         if (value.HasValue)
         {
@@ -525,11 +724,64 @@ class SensorLiveMonitorForm : Form
         }
     }
 
+    private void UpdateHighlightedBits(float? current, uint? previousBits)
+    {
+        if (!_bitRichTextBoxes.TryGetValue("Bits destacados", out RichTextBox? box))
+        {
+            return;
+        }
+
+        if (!current.HasValue)
+        {
+            box.Text = "--";
+            return;
+        }
+
+        uint currentBits = GetFloatBits(current.Value);
+        uint changedBits = previousBits.HasValue ? currentBits ^ previousBits.Value : 0u;
+        RenderHighlightedBits(box, currentBits, changedBits);
+    }
+
+    private static void RenderHighlightedBits(RichTextBox box, uint currentBits, uint changedBits)
+    {
+        box.Clear();
+        AppendBit(box, ((currentBits >> 31) & 1u) != 0, ((changedBits >> 31) & 1u) != 0);
+        AppendSeparator(box);
+        for (int i = 30; i >= 23; i--)
+        {
+            AppendBit(box, ((currentBits >> i) & 1u) != 0, ((changedBits >> i) & 1u) != 0);
+        }
+        AppendSeparator(box);
+        for (int i = 22; i >= 0; i--)
+        {
+            AppendBit(box, ((currentBits >> i) & 1u) != 0, ((changedBits >> i) & 1u) != 0);
+        }
+    }
+
+    private static void AppendSeparator(RichTextBox box)
+    {
+        box.SelectionColor = MainText;
+        box.SelectionBackColor = PanelBackground;
+        box.AppendText(" | ");
+    }
+
+    private static void AppendBit(RichTextBox box, bool bit, bool highlighted)
+    {
+        box.SelectionColor = highlighted ? Color.Black : MainText;
+        box.SelectionBackColor = highlighted ? Color.FromArgb(255, 215, 0) : PanelBackground;
+        box.AppendText(bit ? "1" : "0");
+    }
+
     private void SetBitFieldsToMissing()
     {
         foreach (Label label in _bitLabels.Values)
         {
             label.Text = "--";
+        }
+
+        foreach (RichTextBox box in _bitRichTextBoxes.Values)
+        {
+            box.Text = "--";
         }
     }
 
@@ -617,3 +869,6 @@ class SensorLiveMonitorForm : Form
         public string Delta { get; set; } = "--";
     }
 }
+
+
+
