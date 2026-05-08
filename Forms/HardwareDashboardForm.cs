@@ -42,6 +42,10 @@ class HardwareDashboardForm : Form
     private MetricCard _gpuCard = null!;
     private MetricCard _ramCard = null!;
     private MetricCard _ssdCard = null!;
+    private readonly ShortTrendHistory _cpuTrendHistory = new ShortTrendHistory();
+    private readonly ShortTrendHistory _gpuTrendHistory = new ShortTrendHistory();
+    private readonly ShortTrendHistory _ramTrendHistory = new ShortTrendHistory();
+    private readonly ShortTrendHistory _ssdTrendHistory = new ShortTrendHistory();
     private HardwareMonitorService? _hardwareMonitor;
     private SensorsDetailsForm? _sensorsDetailsForm;
     private SensorOriginsForm? _sensorOriginsForm;
@@ -131,10 +135,10 @@ class HardwareDashboardForm : Form
 
     private void SetLoadingState()
     {
-        _cpuCard.SetValues("...", "Carregando sensores da CPU...", Color.FromArgb(170, 176, 184));
-        _gpuCard.SetValues("...", "Carregando sensores da GPU...", Color.FromArgb(170, 176, 184));
-        _ramCard.SetValues("...", "Carregando memória RAM...", Color.FromArgb(170, 176, 184));
-        _ssdCard.SetValues("...", "Carregando sensores do SSD...", Color.FromArgb(170, 176, 184));
+        _cpuCard.SetValues("...", "Carregando sensores da CPU...", Color.FromArgb(170, 176, 184), Array.Empty<float?>());
+        _gpuCard.SetValues("...", "Carregando sensores da GPU...", Color.FromArgb(170, 176, 184), Array.Empty<float?>());
+        _ramCard.SetValues("...", "Carregando memória RAM...", Color.FromArgb(170, 176, 184), Array.Empty<float?>());
+        _ssdCard.SetValues("...", "Carregando sensores do SSD...", Color.FromArgb(170, 176, 184), Array.Empty<float?>());
 
         _lastUpdatedAt = null;
         _headerToolTip.SetToolTip(_titleLabel, "Inicializando monitoramento...");
@@ -717,25 +721,39 @@ class HardwareDashboardForm : Form
 
     private void UpdateCards(MonitorSnapshot snapshot)
     {
+        _cpuTrendHistory.Add(GetCpuTrendValue(snapshot));
+        _gpuTrendHistory.Add(snapshot.GpuTemp);
+        _ramTrendHistory.Add(snapshot.RamUso);
+        _ssdTrendHistory.Add(snapshot.SsdTemp);
+
         _cpuCard.SetValues(
             GetCpuPrimaryText(snapshot),
             GetCpuSecondaryText(snapshot),
-            GetCpuAccentColor(snapshot));
+            GetCpuAccentColor(snapshot),
+            _cpuTrendHistory.Values);
 
         _gpuCard.SetValues(
             FormatTemperature(snapshot.GpuTemp),
             $"Uso {FormatPercent(snapshot.GpuUso)} | Potência {FormatPower(snapshot.GpuPower)} | Fan {FormatFan(snapshot.GpuFan)}",
-            GetTemperatureColor(snapshot.GpuTemp, _config.GpuTempMax));
+            GetTemperatureColor(snapshot.GpuTemp, _config.GpuTempMax),
+            _gpuTrendHistory.Values);
 
         _ramCard.SetValues(
             GetRamPrimaryText(snapshot),
             GetRamSecondaryText(snapshot),
-            GetLoadColor(snapshot.RamUso));
+            GetLoadColor(snapshot.RamUso),
+            _ramTrendHistory.Values);
 
         _ssdCard.SetValues(
             FormatTemperature(snapshot.SsdTemp),
             $"Limite configurado {FormatTemperature(_config.SsdTempMax)}",
-            GetTemperatureColor(snapshot.SsdTemp, _config.SsdTempMax));
+            GetTemperatureColor(snapshot.SsdTemp, _config.SsdTempMax),
+            _ssdTrendHistory.Values);
+    }
+
+    private static float? GetCpuTrendValue(MonitorSnapshot snapshot)
+    {
+        return snapshot.CpuTemp ?? snapshot.CpuUso;
     }
 
     private string GetCpuPrimaryText(MonitorSnapshot snapshot)
@@ -1194,6 +1212,7 @@ class MetricCard : Panel
     private readonly Label _titleLabel;
     private readonly Label _primaryLabel;
     private readonly Label _secondaryLabel;
+    private readonly MiniTrendGraph _trendGraph;
     private readonly Panel _contentPanel;
     private string _secondaryText = "Aguardando leitura";
     private bool _isCompactLayout;
@@ -1210,7 +1229,7 @@ class MetricCard : Panel
         _contentPanel = new Panel
         {
             Dock = DockStyle.Fill,
-            BackColor = Color.Transparent,
+            BackColor = CardBackground,
             Padding = new Padding(0),
             Margin = new Padding(0)
         };
@@ -1252,18 +1271,28 @@ class MetricCard : Panel
             AutoSize = true
         };
 
+        _trendGraph = new MiniTrendGraph
+        {
+            Dock = DockStyle.Bottom,
+            Height = 40,
+            Margin = new Padding(0),
+            Visible = true
+        };
+
         _contentPanel.Controls.Add(_secondaryLabel);
         _contentPanel.Controls.Add(_primaryLabel);
         _contentPanel.Controls.Add(_titleLabel);
+        _contentPanel.Controls.Add(_trendGraph);
         Controls.Add(_contentPanel);
         SizeChanged += (_, _) => UpdateSecondaryLabel();
         Paint += MetricCardPaint;
     }
 
-    public void SetValues(string primary, string secondary, Color accent)
+    public void SetValues(string primary, string secondary, Color accent, IReadOnlyList<float?> trendValues)
     {
         _primaryLabel.Text = string.IsNullOrWhiteSpace(primary) ? "--" : primary;
         _primaryLabel.ForeColor = accent;
+        _trendGraph.SetValues(trendValues, accent);
 
         _secondaryText = string.IsNullOrWhiteSpace(secondary)
             ? "Informação não disponível"
@@ -1290,6 +1319,7 @@ class MetricCard : Panel
             _titleLabel.Font = new Font("Segoe UI", 9.25f, FontStyle.Bold, GraphicsUnit.Point);
             _primaryLabel.Font = new Font("Segoe UI", 19, FontStyle.Bold, GraphicsUnit.Point);
             _secondaryLabel.Font = new Font("Segoe UI", 8.75f, FontStyle.Regular, GraphicsUnit.Point);
+            _trendGraph.Visible = false;
         }
         else
         {
@@ -1300,6 +1330,7 @@ class MetricCard : Panel
             _titleLabel.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold, GraphicsUnit.Point);
             _primaryLabel.Font = new Font("Segoe UI", 27, FontStyle.Bold, GraphicsUnit.Point);
             _secondaryLabel.Font = new Font("Segoe UI", 10f, FontStyle.Regular, GraphicsUnit.Point);
+            _trendGraph.Visible = true;
         }
 
         UpdateSecondaryLabel();
@@ -1339,3 +1370,128 @@ class MetricCard : Panel
         e.Graphics.DrawLine(accentPen, bounds.Left + 10, bounds.Top + 1, bounds.Right - 10, bounds.Top + 1);
     }
 }
+
+class MiniTrendGraph : Control
+{
+    private static readonly Color GridColor = Color.FromArgb(45, 52, 60);
+    private static readonly Color EmptyColor = Color.FromArgb(90, 96, 104);
+    private const int MaxPoints = 30;
+
+    private readonly List<float?> _values = new List<float?>(MaxPoints);
+    private Color _accent = Color.FromArgb(78, 140, 255);
+
+    public MiniTrendGraph()
+    {
+        DoubleBuffered = true;
+        BackColor = Color.FromArgb(27, 31, 36);
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
+    }
+
+    public void SetValues(IReadOnlyList<float?> values, Color accent)
+    {
+        _accent = accent;
+        _values.Clear();
+
+        int start = Math.Max(0, values.Count - MaxPoints);
+        for (int i = start; i < values.Count; i++)
+        {
+            _values.Add(values[i]);
+        }
+
+        Invalidate();
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        Rectangle bounds = ClientRectangle;
+
+        using Pen gridPen = new Pen(GridColor);
+        using Pen linePen = new Pen(_accent, 2f);
+        using Brush fillBrush = new SolidBrush(Color.FromArgb(35, _accent));
+        using Brush emptyBrush = new SolidBrush(EmptyColor);
+
+        int midY = bounds.Top + bounds.Height / 2;
+        e.Graphics.DrawLine(gridPen, bounds.Left, midY, bounds.Right, midY);
+
+        if (_values.Count < 2 || !_values.Any(value => value.HasValue))
+        {
+            e.Graphics.FillEllipse(emptyBrush, bounds.Left + 2, bounds.Top + bounds.Height / 2 - 2, 4, 4);
+            return;
+        }
+
+        List<PointF> points = new List<PointF>(_values.Count);
+        float min = float.MaxValue;
+        float max = float.MinValue;
+
+        foreach (float? value in _values)
+        {
+            if (!value.HasValue)
+            {
+                continue;
+            }
+
+            min = Math.Min(min, value.Value);
+            max = Math.Max(max, value.Value);
+        }
+
+        if (min == float.MaxValue || max == float.MinValue)
+        {
+            return;
+        }
+
+        float range = Math.Max(1f, max - min);
+        float stepX = _values.Count > 1 ? (float)bounds.Width / (float)(_values.Count - 1) : bounds.Width;
+
+        for (int i = 0; i < _values.Count; i++)
+        {
+            float? value = _values[i];
+            if (!value.HasValue)
+            {
+                continue;
+            }
+
+            float x = bounds.Left + i * stepX;
+            float y = bounds.Bottom - 1 - ((value.Value - min) / range * Math.Max(1, bounds.Height - 2));
+            points.Add(new PointF(x, y));
+        }
+
+        if (points.Count < 2)
+        {
+            return;
+        }
+
+        e.Graphics.FillPolygon(fillBrush, BuildFillPolygon(points, bounds));
+        e.Graphics.DrawLines(linePen, points.ToArray());
+    }
+
+    private static PointF[] BuildFillPolygon(List<PointF> points, Rectangle bounds)
+    {
+        List<PointF> polygon = new List<PointF>(points.Count + 2);
+        polygon.Add(new PointF(points[0].X, bounds.Bottom - 1));
+        polygon.AddRange(points);
+        polygon.Add(new PointF(points[^1].X, bounds.Bottom - 1));
+        return polygon.ToArray();
+    }
+}
+
+class ShortTrendHistory
+{
+    private const int MaxPoints = 30;
+    private readonly Queue<float?> _values = new Queue<float?>(MaxPoints);
+
+    public IReadOnlyList<float?> Values => _values.ToArray();
+
+    public void Add(float? value)
+    {
+        _values.Enqueue(value);
+        while (_values.Count > MaxPoints)
+        {
+            _values.Dequeue();
+        }
+    }
+}
+
+
