@@ -8,6 +8,13 @@ using System.Windows.Forms;
 
 class HardwareDashboardForm : Form
 {
+    private const int MinimumWindowWidth = 760;
+    private const int MinimumWindowHeight = 700;
+    private const int DefaultWindowWidth = 900;
+    private const int HeaderStackBreakpoint = 940;
+    private const int CardsSingleColumnBreakpoint = 860;
+    private const int HeaderActionsWidth = 300;
+
     private readonly AppConfig _config;
     private readonly SnapshotService _snapshotService;
     private readonly CsvLoggerService _csvLogger;
@@ -15,19 +22,36 @@ class HardwareDashboardForm : Form
     private readonly StartupTaskService _startupTaskService;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly Icon _windowIcon;
+    private readonly ToolTip _headerToolTip = new ToolTip();
 
-    private Label _updatedAtLabel = null!;
     private Label _statusLabel = null!;
+    private Label _titleLabel = null!;
     private Button _updateButton = null!;
+    private Button _sensorsButton = null!;
+    private Button _sensorOriginsButton = null!;
     private Button _errorReportButton = null!;
     private Button _helpButton = null!;
     private CheckBox _startupCheckBox = null!;
     private ContextMenuStrip _helpMenu = null!;
+    private TableLayoutPanel _headerLayout = null!;
+    private TableLayoutPanel _titleLayout = null!;
+    private TableLayoutPanel _actionsLayout = null!;
+    private FlowLayoutPanel _headerButtonsPanel = null!;
+    private TableLayoutPanel _cardsGrid = null!;
     private MetricCard _cpuCard = null!;
     private MetricCard _gpuCard = null!;
     private MetricCard _ramCard = null!;
     private MetricCard _ssdCard = null!;
+    private readonly ShortTrendHistory _cpuTrendHistory = new ShortTrendHistory();
+    private readonly ShortTrendHistory _gpuTrendHistory = new ShortTrendHistory();
+    private readonly ShortTrendHistory _ramTrendHistory = new ShortTrendHistory();
+    private readonly ShortTrendHistory _ssdTrendHistory = new ShortTrendHistory();
     private HardwareMonitorService? _hardwareMonitor;
+    private SensorsDetailsForm? _sensorsDetailsForm;
+    private SensorOriginsForm? _sensorOriginsForm;
+    private DateTime? _lastUpdatedAt;
+    private bool _headerIsStacked;
+    private bool _cardsAreStacked;
 
     public HardwareDashboardForm(AppConfig config)
     {
@@ -47,36 +71,38 @@ class HardwareDashboardForm : Form
         Icon = _windowIcon;
         ShowInTaskbar = true;
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(1080, 720);
+        MinimumSize = new Size(MinimumWindowWidth, MinimumWindowHeight);
         Size = GetInitialWindowSize();
-        AutoScroll = true;
+        ApplyNotebookWindowMode();
+        AutoScroll = false;
         BackColor = Color.FromArgb(17, 19, 22);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point);
         DoubleBuffered = true;
 
         BuildLayout();
+        SizeChanged += (_, _) => ApplyResponsiveLayout();
         SetLoadingState();
 
         _timer.Tick += (_, _) => RefreshSnapshot();
         Shown += (_, _) =>
-{
-    SetLoadingState();
-    RefreshStartupState();
-    _timer.Start();
-
-    BeginInvoke(new Action(async () =>
-    {
-        await Task.Delay(300);
-
-        RefreshSnapshot();
-
-        if (_config.EnableAutoUpdateCheck)
         {
-            await CheckForUpdatesAsync(showUpToDate: false);
-        }
-    }));
-};
+            SetLoadingState();
+            RefreshStartupState();
+            _timer.Start();
+
+            BeginInvoke(new Action(async () =>
+            {
+                await Task.Delay(300);
+
+                RefreshSnapshot();
+
+                if (_config.EnableAutoUpdateCheck)
+                {
+                    await CheckForUpdatesAsync(showUpToDate: false);
+                }
+            }));
+        };
         FormClosing += HardwareDashboardFormClosing;
 
         FormClosed += (_, _) =>
@@ -84,8 +110,15 @@ class HardwareDashboardForm : Form
             _timer.Stop();
             _timer.Dispose();
             _helpMenu.Dispose();
+            _headerToolTip.Dispose();
             _windowIcon.Dispose();
         };
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        WindowThemeService.ApplyNativeTitleBarTheme(Handle);
     }
 
     private void HardwareDashboardFormClosing(object? sender, FormClosingEventArgs e)
@@ -102,24 +135,85 @@ class HardwareDashboardForm : Form
 
     private void SetLoadingState()
     {
-        _cpuCard.SetValues("...", "Carregando sensores da CPU...", Color.FromArgb(170, 176, 184));
-        _gpuCard.SetValues("...", "Carregando sensores da GPU...", Color.FromArgb(170, 176, 184));
-        _ramCard.SetValues("...", "Carregando memória RAM...", Color.FromArgb(170, 176, 184));
-        _ssdCard.SetValues("...", "Carregando sensores do SSD...", Color.FromArgb(170, 176, 184));
+        _cpuCard.SetValues("...", "Carregando sensores da CPU...", Color.FromArgb(170, 176, 184), Array.Empty<float?>());
+        _gpuCard.SetValues("...", "Carregando sensores da GPU...", Color.FromArgb(170, 176, 184), Array.Empty<float?>());
+        _ramCard.SetValues("...", "Carregando memória RAM...", Color.FromArgb(170, 176, 184), Array.Empty<float?>());
+        _ssdCard.SetValues("...", "Carregando sensores do SSD...", Color.FromArgb(170, 176, 184), Array.Empty<float?>());
 
-        _updatedAtLabel.Text = "Inicializando monitoramento...";
+        _lastUpdatedAt = null;
+        _headerToolTip.SetToolTip(_titleLabel, "Inicializando monitoramento...");
         _statusLabel.Text = "Carregando sensores...";
         _statusLabel.ForeColor = Color.FromArgb(170, 176, 184);
     }
+
     private static Size GetInitialWindowSize()
     {
         Rectangle workingArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 720);
 
-        int width = Math.Min(1180, Math.Max(1080, workingArea.Width - 80));
-        int height = Math.Min(760, Math.Max(720, workingArea.Height - 80));
+        int width = Math.Min(1180, Math.Max(DefaultWindowWidth, workingArea.Width - 40));
+        int height = Math.Min(820, Math.Max(MinimumWindowHeight, workingArea.Height - 40));
 
         return new Size(width, height);
     }
+
+    private void ApplyNotebookWindowMode()
+    {
+        Rectangle workingArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 720);
+
+        bool compactScreen =
+            workingArea.Width <= 1366 ||
+            workingArea.Height <= 768 ||
+            DeviceDpi > 120;
+
+        if (compactScreen)
+        {
+            WindowState = FormWindowState.Maximized;
+        }
+    }
+
+    private static int GetLayoutWidth(Control control)
+    {
+        return control.ClientSize.Width > 0
+            ? control.ClientSize.Width
+            : control.Width;
+    }
+
+    private bool ShouldStackHeader()
+    {
+        return GetLayoutWidth(this) < HeaderStackBreakpoint ||
+               ClientSize.Height < 820;
+    }
+
+    private bool ShouldStackCards()
+    {
+        int layoutWidth = GetLayoutWidth(_cardsGrid);
+
+        int layoutHeight = _cardsGrid.ClientSize.Height > 0
+            ? _cardsGrid.ClientSize.Height
+            : _cardsGrid.Height;
+
+        bool isNarrow = layoutWidth < CardsSingleColumnBreakpoint;
+        bool hasEnoughHeightForSingleColumn = layoutHeight >= 560;
+
+        return isNarrow && hasEnoughHeightForSingleColumn;
+    }
+
+    private bool ShouldUseCompactCards(bool stackCards)
+    {
+        if (stackCards)
+        {
+            return true;
+        }
+
+        int layoutHeight = _cardsGrid.ClientSize.Height > 0
+            ? _cardsGrid.ClientSize.Height
+            : _cardsGrid.Height;
+
+        int estimatedCardHeight = layoutHeight / 2;
+
+        return estimatedCardHeight < 240;
+    }
+
     private void BuildLayout()
     {
         TableLayoutPanel root = new TableLayoutPanel
@@ -131,151 +225,397 @@ class HardwareDashboardForm : Form
             BackColor = BackColor
         };
 
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 166));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
 
-        TableLayoutPanel header = new TableLayoutPanel
+        _headerLayout = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             BackColor = BackColor,
-            ColumnCount = 2,
-            RowCount = 1
+            Margin = new Padding(0, 0, 0, 12)
         };
 
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 300));
-
-        Panel titlePanel = new Panel
+        _titleLayout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            BackColor = BackColor
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = BackColor,
+            ColumnCount = 1,
+            RowCount = 1,
+            MinimumSize = new Size(0, 70)
         };
 
-        Label titleLabel = new Label
+        _titleLabel = new Label
         {
             Text = "Monitor Hardware",
-            Dock = DockStyle.Top,
-            Height = 34,
+            Dock = DockStyle.Fill,
+            Height = 42,
             ForeColor = Color.White,
-            Font = new Font("Segoe UI", 18, FontStyle.Bold, GraphicsUnit.Point)
+            Font = new Font("Segoe UI", 17, FontStyle.Bold, GraphicsUnit.Point),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true
         };
+        _titleLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+        _titleLayout.Controls.Add(_titleLabel, 0, 0);
 
-        _updatedAtLabel = new Label
-        {
-            Text = "Atualizando...",
-            Dock = DockStyle.Top,
-            Height = 26,
-            ForeColor = Color.FromArgb(170, 176, 184),
-            Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point)
-        };
-
-        titlePanel.Controls.Add(_updatedAtLabel);
-        titlePanel.Controls.Add(titleLabel);
-
-        FlowLayoutPanel actionsPanel = new FlowLayoutPanel
+        _headerButtonsPanel = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
+            FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
-            Padding = new Padding(0, 4, 0, 0),
-            BackColor = BackColor
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = BackColor,
+            Margin = new Padding(0),
+            Padding = new Padding(0),
+            RightToLeft = RightToLeft.Yes
+        };
+
+        _actionsLayout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding = new Padding(0),
+            BackColor = BackColor,
+            Margin = new Padding(0)
         };
 
         _updateButton = new Button
         {
-            Text = "Verificar atualizações",
-            Width = 260,
-            Height = 32,
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.White,
-            BackColor = Color.FromArgb(36, 41, 47)
+            Text = "Verificar atualizações"
         };
-        _updateButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        ConfigureActionButton(_updateButton);
         _updateButton.Click += async (_, _) => await CheckForUpdatesAsync(showUpToDate: true);
+
+        _sensorsButton = new Button
+        {
+            Text = "Conferir todos os sensores"
+        };
+        ConfigureActionButton(_sensorsButton);
+        _sensorsButton.Click += (_, _) => OpenSensorsDetails();
+
+        _sensorOriginsButton = new Button
+        {
+            Text = "Origem dos sensores"
+        };
+        ConfigureActionButton(_sensorOriginsButton);
+        _sensorOriginsButton.Click += (_, _) => OpenSensorOrigins();
 
         _errorReportButton = new Button
         {
-            Text = "Relatório de erros",
-            Width = 260,
-            Height = 32,
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.White,
-            BackColor = Color.FromArgb(36, 41, 47)
+            Text = "Relatório de erros"
         };
-        _errorReportButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        ConfigureActionButton(_errorReportButton);
         _errorReportButton.Click += (_, _) => GenerateAndOpenErrorReport();
 
         _helpButton = new Button
         {
-            Text = "Ajuda",
-            Width = 260,
-            Height = 32,
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = Color.White,
-            BackColor = Color.FromArgb(36, 41, 47)
+            Text = "?"
         };
-        _helpButton.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        ConfigureHelpButton(_helpButton);
         _helpButton.Click += (_, _) => ShowHelpMenu();
 
         _startupCheckBox = new CheckBox
         {
             Text = "Iniciar com o Windows",
-            AutoSize = true,
-            MinimumSize = new Size(260, 32),
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            Height = 38,
+            MinimumSize = new Size(220, 38),
             ForeColor = Color.FromArgb(210, 214, 220),
-            BackColor = BackColor
+            BackColor = BackColor,
+            TextAlign = ContentAlignment.MiddleLeft,
+            UseVisualStyleBackColor = false
         };
 
         _startupCheckBox.CheckedChanged += StartupCheckBoxCheckedChanged;
 
         _helpMenu = BuildHelpMenu();
 
-        actionsPanel.Controls.Add(_updateButton);
-        actionsPanel.Controls.Add(_errorReportButton);
-        actionsPanel.Controls.Add(_helpButton);
-        actionsPanel.Controls.Add(_startupCheckBox);
-
-        header.Controls.Add(titlePanel, 0, 0);
-        header.Controls.Add(actionsPanel, 1, 0);
-
-        TableLayoutPanel cardsGrid = new TableLayoutPanel
+        _cardsGrid = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 2,
+            Padding = new Padding(0),
             BackColor = BackColor
         };
-
-        cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
-        cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
 
         _cpuCard = new MetricCard("CPU");
         _gpuCard = new MetricCard("GPU");
         _ramCard = new MetricCard("Memória RAM");
         _ssdCard = new MetricCard("SSD");
 
-        cardsGrid.Controls.Add(_cpuCard, 0, 0);
-        cardsGrid.Controls.Add(_gpuCard, 1, 0);
-        cardsGrid.Controls.Add(_ramCard, 0, 1);
-        cardsGrid.Controls.Add(_ssdCard, 1, 1);
+        _cardsGrid.SizeChanged += (_, _) => ApplyCardsGridLayout();
 
         _statusLabel = new Label
         {
             Text = "Nenhum alerta crítico.",
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true,
             ForeColor = Color.FromArgb(170, 176, 184),
             Font = new Font("Segoe UI", 10, FontStyle.Bold, GraphicsUnit.Point)
         };
 
-        root.Controls.Add(header, 0, 0);
-        root.Controls.Add(cardsGrid, 0, 1);
+        root.Controls.Add(_headerLayout, 0, 0);
+        root.Controls.Add(_cardsGrid, 0, 1);
         root.Controls.Add(_statusLabel, 0, 2);
 
         Controls.Add(root);
+        ApplyResponsiveLayout();
+    }
+
+    private static void ConfigureActionButton(Button button)
+    {
+        button.Dock = DockStyle.Fill;
+        button.Height = 38;
+        button.MinimumSize = new Size(220, 38);
+        button.FlatStyle = FlatStyle.Flat;
+        button.ForeColor = Color.White;
+        button.BackColor = Color.FromArgb(36, 41, 47);
+        button.UseVisualStyleBackColor = false;
+        button.TextAlign = ContentAlignment.MiddleCenter;
+        button.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(44, 50, 57);
+        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 34, 39);
+    }
+
+    private static void ConfigureHelpButton(Button button)
+    {
+        button.AutoSize = false;
+        button.Size = new Size(30, 30);
+        button.MinimumSize = new Size(30, 30);
+        button.FlatStyle = FlatStyle.Flat;
+        button.ForeColor = Color.FromArgb(230, 233, 236);
+        button.BackColor = Color.FromArgb(32, 37, 42);
+        button.UseVisualStyleBackColor = false;
+        button.TextAlign = ContentAlignment.MiddleCenter;
+        button.Font = new Font("Segoe UI", 10, FontStyle.Bold, GraphicsUnit.Point);
+        button.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(44, 50, 57);
+        button.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 34, 39);
+        button.Margin = new Padding(0);
+        button.Padding = new Padding(0);
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        if (_headerLayout == null || _cardsGrid == null)
+        {
+            return;
+        }
+
+        ApplyHeaderLayout();
+        ApplyCardsGridLayout();
+    }
+
+    private void ApplyHeaderLayout()
+    {
+        bool stackHeader = ShouldStackHeader();
+
+        if (_headerLayout.Controls.Count > 0 && _headerIsStacked == stackHeader)
+        {
+            return;
+        }
+
+        _headerIsStacked = stackHeader;
+
+        _headerLayout.SuspendLayout();
+        _headerLayout.Controls.Clear();
+        _headerLayout.ColumnStyles.Clear();
+        _headerLayout.RowStyles.Clear();
+
+        if (stackHeader)
+        {
+            _headerLayout.ColumnCount = 1;
+            _headerLayout.RowCount = 2;
+            _headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            _titleLayout.Margin = new Padding(0, 0, 0, 0);
+            _actionsLayout.Margin = new Padding(0);
+            _headerButtonsPanel.Margin = new Padding(0, 0, 0, 10);
+
+            ConfigureActionsLayout(useTwoColumns: true);
+            ConfigureHeaderButtonsPanel();
+            _headerLayout.Controls.Add(BuildHeaderTopRow(), 0, 0);
+            _headerLayout.Controls.Add(_actionsLayout, 0, 1);
+        }
+        else
+        {
+            _headerLayout.ColumnCount = 1;
+            _headerLayout.RowCount = 2;
+            _headerLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            _headerLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+            _titleLayout.Margin = new Padding(0);
+            _actionsLayout.Margin = new Padding(0);
+            _headerButtonsPanel.Margin = new Padding(0, 0, 0, 10);
+
+            ConfigureActionsLayout(useTwoColumns: true);
+            ConfigureHeaderButtonsPanel();
+            _headerLayout.Controls.Add(BuildHeaderTopRow(), 0, 0);
+            _headerLayout.Controls.Add(_actionsLayout, 0, 1);
+        }
+
+        _headerLayout.ResumeLayout(true);
+    }
+
+    private Control BuildHeaderTopRow()
+    {
+        TableLayoutPanel topRow = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = BackColor,
+            ColumnCount = 2,
+            RowCount = 1,
+            Margin = new Padding(0)
+        };
+
+        topRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        topRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        topRow.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        topRow.Controls.Add(_titleLayout, 0, 0);
+        topRow.Controls.Add(_headerButtonsPanel, 1, 0);
+        return topRow;
+    }
+
+    private void ConfigureHeaderButtonsPanel()
+    {
+        _headerButtonsPanel.Controls.Clear();
+        _headerButtonsPanel.Controls.Add(_helpButton);
+        _headerToolTip.SetToolTip(_helpButton, "Ajuda");
+        if (_lastUpdatedAt.HasValue)
+        {
+            _headerToolTip.SetToolTip(_titleLabel, $"Atualizado em {_lastUpdatedAt.Value:dd/MM/yyyy HH:mm:ss}");
+        }
+    }
+
+    private void ConfigureActionsLayout(bool useTwoColumns)
+    {
+        _actionsLayout.SuspendLayout();
+        _actionsLayout.Controls.Clear();
+        _actionsLayout.ColumnStyles.Clear();
+        _actionsLayout.RowStyles.Clear();
+
+        if (useTwoColumns)
+        {
+            _actionsLayout.ColumnCount = 2;
+            _actionsLayout.RowCount = 3;
+            _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+
+            AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 8, 8));
+            AddActionControl(_sensorsButton, 1, 0, new Padding(8, 0, 0, 8));
+            AddActionControl(_sensorOriginsButton, 0, 1, new Padding(0, 0, 8, 8));
+            AddActionControl(_errorReportButton, 1, 1, new Padding(8, 0, 0, 8));
+            AddActionControl(_startupCheckBox, 0, 2, new Padding(0, 2, 0, 0), columnSpan: 2);
+        }
+        else
+        {
+            _actionsLayout.ColumnCount = 1;
+            _actionsLayout.RowCount = 5;
+            _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+            for (int index = 0; index < 5; index++)
+            {
+                _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            }
+
+            AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 0, 8));
+            AddActionControl(_sensorsButton, 0, 1, new Padding(0, 0, 0, 8));
+            AddActionControl(_sensorOriginsButton, 0, 2, new Padding(0, 0, 0, 8));
+            AddActionControl(_errorReportButton, 0, 3, new Padding(0, 0, 0, 8));
+            AddActionControl(_startupCheckBox, 0, 4, new Padding(0));
+        }
+
+        _actionsLayout.ResumeLayout(true);
+    }
+
+    private void AddActionControl(Control control, int column, int row, Padding margin, int columnSpan = 1)
+    {
+        control.Dock = DockStyle.Fill;
+        control.Margin = margin;
+        _actionsLayout.Controls.Add(control, column, row);
+        _actionsLayout.SetColumnSpan(control, columnSpan);
+    }
+
+    private void OpenSensorsDetails()
+    {
+        try
+        {
+            _hardwareMonitor ??= new HardwareMonitorService();
+
+            if (_sensorsDetailsForm is { IsDisposed: false })
+            {
+                if (_sensorsDetailsForm.WindowState == FormWindowState.Minimized)
+                {
+                    _sensorsDetailsForm.WindowState = FormWindowState.Normal;
+                }
+
+                _sensorsDetailsForm.Show();
+                _sensorsDetailsForm.Activate();
+                return;
+            }
+
+            _sensorsDetailsForm = new SensorsDetailsForm(_hardwareMonitor, _windowIcon);
+            _sensorsDetailsForm.FormClosed += (_, _) => _sensorsDetailsForm = null;
+            _sensorsDetailsForm.Show(this);
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível abrir a tela de sensores.");
+
+            MessageBox.Show(
+                $"Não foi possível abrir a tela de sensores: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+    }
+
+    private void OpenSensorOrigins()
+    {
+        try
+        {
+            if (_sensorOriginsForm is { IsDisposed: false })
+            {
+                if (_sensorOriginsForm.WindowState == FormWindowState.Minimized)
+                {
+                    _sensorOriginsForm.WindowState = FormWindowState.Normal;
+                }
+
+                _sensorOriginsForm.Show();
+                _sensorOriginsForm.Activate();
+                return;
+            }
+
+            _sensorOriginsForm = new SensorOriginsForm(_windowIcon);
+            _sensorOriginsForm.FormClosed += (_, _) => _sensorOriginsForm = null;
+            _sensorOriginsForm.Show(this);
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível abrir a tela de origem dos sensores.");
+
+            MessageBox.Show(
+                $"Não foi possível abrir a tela de origem dos sensores: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
     }
 
     private void RefreshSnapshot()
@@ -293,7 +633,8 @@ class HardwareDashboardForm : Form
             }
 
             UpdateCards(snapshot);
-            _updatedAtLabel.Text = $"Atualizado em {snapshot.Timestamp:dd/MM/yyyy HH:mm:ss}";
+            _lastUpdatedAt = snapshot.Timestamp;
+            _headerToolTip.SetToolTip(_titleLabel, $"Atualizado em {snapshot.Timestamp:dd/MM/yyyy HH:mm:ss}");
             _statusLabel.Text = GetStatusText(snapshot);
             _statusLabel.ForeColor = GetStatusColor(snapshot);
         }
@@ -305,27 +646,114 @@ class HardwareDashboardForm : Form
         }
     }
 
+    private void ApplyCardsGridLayout()
+    {
+        if (GetLayoutWidth(_cardsGrid) <= 0)
+        {
+            return;
+        }
+
+        bool stackCards = ShouldStackCards();
+        bool compactCards = ShouldUseCompactCards(stackCards);
+
+        if (_cardsGrid.Controls.Count == 4 && _cardsAreStacked == stackCards)
+        {
+            ApplyMetricCardDensity(compactCards);
+            return;
+        }
+
+        _cardsAreStacked = stackCards;
+
+        _cardsGrid.SuspendLayout();
+        _cardsGrid.Controls.Clear();
+        _cardsGrid.ColumnStyles.Clear();
+        _cardsGrid.RowStyles.Clear();
+
+        if (stackCards)
+        {
+            _cardsGrid.ColumnCount = 1;
+            _cardsGrid.RowCount = 4;
+            _cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+            for (int index = 0; index < 4; index++)
+            {
+                _cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
+            }
+
+            AddMetricCard(_cpuCard, 0, 0, new Padding(0, 0, 0, 8), isCompact: true);
+            AddMetricCard(_gpuCard, 0, 1, new Padding(0, 8, 0, 8), isCompact: true);
+            AddMetricCard(_ramCard, 0, 2, new Padding(0, 8, 0, 8), isCompact: true);
+            AddMetricCard(_ssdCard, 0, 3, new Padding(0, 8, 0, 0), isCompact: true);
+        }
+        else
+        {
+            _cardsGrid.ColumnCount = 2;
+            _cardsGrid.RowCount = 2;
+            _cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _cardsGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            _cardsGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+
+            AddMetricCard(_cpuCard, 0, 0, new Padding(0, 0, 8, 8), isCompact: compactCards);
+            AddMetricCard(_gpuCard, 1, 0, new Padding(8, 0, 0, 8), isCompact: compactCards);
+            AddMetricCard(_ramCard, 0, 1, new Padding(0, 8, 8, 0), isCompact: compactCards);
+            AddMetricCard(_ssdCard, 1, 1, new Padding(8, 8, 0, 0), isCompact: compactCards);
+        }
+
+        _cardsGrid.ResumeLayout(true);
+    }
+
+    private void AddMetricCard(MetricCard card, int column, int row, Padding margin, bool isCompact)
+    {
+        card.Dock = DockStyle.Fill;
+        card.Margin = margin;
+        card.SetCompactLayout(isCompact);
+        _cardsGrid.Controls.Add(card, column, row);
+    }
+
+    private void ApplyMetricCardDensity(bool isCompact)
+    {
+        _cpuCard.SetCompactLayout(isCompact);
+        _gpuCard.SetCompactLayout(isCompact);
+        _ramCard.SetCompactLayout(isCompact);
+        _ssdCard.SetCompactLayout(isCompact);
+    }
+
     private void UpdateCards(MonitorSnapshot snapshot)
     {
+        _cpuTrendHistory.Add(GetCpuTrendValue(snapshot));
+        _gpuTrendHistory.Add(snapshot.GpuTemp);
+        _ramTrendHistory.Add(snapshot.RamUso);
+        _ssdTrendHistory.Add(snapshot.SsdTemp);
+
         _cpuCard.SetValues(
             GetCpuPrimaryText(snapshot),
             GetCpuSecondaryText(snapshot),
-            GetCpuAccentColor(snapshot));
+            GetCpuAccentColor(snapshot),
+            _cpuTrendHistory.Values);
 
         _gpuCard.SetValues(
             FormatTemperature(snapshot.GpuTemp),
             $"Uso {FormatPercent(snapshot.GpuUso)} | Potência {FormatPower(snapshot.GpuPower)} | Fan {FormatFan(snapshot.GpuFan)}",
-            GetTemperatureColor(snapshot.GpuTemp, _config.GpuTempMax));
+            GetTemperatureColor(snapshot.GpuTemp, _config.GpuTempMax),
+            _gpuTrendHistory.Values);
 
         _ramCard.SetValues(
             GetRamPrimaryText(snapshot),
             GetRamSecondaryText(snapshot),
-            GetLoadColor(snapshot.RamUso));
+            GetLoadColor(snapshot.RamUso),
+            _ramTrendHistory.Values);
 
         _ssdCard.SetValues(
             FormatTemperature(snapshot.SsdTemp),
             $"Limite configurado {FormatTemperature(_config.SsdTempMax)}",
-            GetTemperatureColor(snapshot.SsdTemp, _config.SsdTempMax));
+            GetTemperatureColor(snapshot.SsdTemp, _config.SsdTempMax),
+            _ssdTrendHistory.Values);
+    }
+
+    private static float? GetCpuTrendValue(MonitorSnapshot snapshot)
+    {
+        return snapshot.CpuTemp ?? snapshot.CpuUso;
     }
 
     private string GetCpuPrimaryText(MonitorSnapshot snapshot)
@@ -723,6 +1151,7 @@ class HardwareDashboardForm : Form
 
         return version;
     }
+
     private static bool IsRunningAsAdministrator()
     {
         using WindowsIdentity identity = WindowsIdentity.GetCurrent();
@@ -774,55 +1203,295 @@ class HardwareDashboardForm : Form
 
 class MetricCard : Panel
 {
+    private static readonly Color CardBackground = Color.FromArgb(27, 31, 36);
+    private static readonly Color CardBorder = Color.FromArgb(52, 60, 69);
+    private static readonly Color CardAccent = Color.FromArgb(78, 140, 255);
+    private static readonly Color TitleColor = Color.FromArgb(220, 224, 229);
+    private static readonly Color SecondaryColor = Color.FromArgb(177, 185, 194);
+
     private readonly Label _titleLabel;
     private readonly Label _primaryLabel;
     private readonly Label _secondaryLabel;
+    private readonly MiniTrendGraph _trendGraph;
+    private readonly Panel _contentPanel;
+    private string _secondaryText = "Aguardando leitura";
+    private bool _isCompactLayout;
 
     public MetricCard(string title)
     {
         Dock = DockStyle.Fill;
         Margin = new Padding(8);
-        Padding = new Padding(16);
+        Padding = new Padding(20, 18, 20, 18);
         MinimumSize = new Size(0, 190);
-        BackColor = Color.FromArgb(28, 31, 35);
+        BackColor = CardBackground;
+        DoubleBuffered = true;
+
+        _contentPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = CardBackground,
+            Padding = new Padding(0),
+            Margin = new Padding(0)
+        };
 
         _titleLabel = new Label
         {
             Text = title,
             Dock = DockStyle.Top,
-            Height = 28,
-            ForeColor = Color.FromArgb(210, 214, 220),
-            Font = new Font("Segoe UI", 11, FontStyle.Bold, GraphicsUnit.Point)
+            Height = 26,
+            ForeColor = TitleColor,
+            Font = new Font("Segoe UI", 10.5f, FontStyle.Bold, GraphicsUnit.Point),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true,
+            Margin = new Padding(0)
         };
 
         _primaryLabel = new Label
         {
             Text = "--",
             Dock = DockStyle.Top,
-            Height = 58,
-            ForeColor = SystemColors.Highlight,
-            Font = new Font("Segoe UI", 26, FontStyle.Bold, GraphicsUnit.Point)
+            Height = 72,
+            ForeColor = CardAccent,
+            Font = new Font("Segoe UI", 27, FontStyle.Bold, GraphicsUnit.Point),
+            TextAlign = ContentAlignment.MiddleLeft,
+            AutoEllipsis = true,
+            Margin = new Padding(0)
         };
 
         _secondaryLabel = new Label
         {
             Text = "Aguardando leitura",
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             AutoEllipsis = false,
             TextAlign = ContentAlignment.TopLeft,
-            ForeColor = Color.FromArgb(170, 176, 184),
-            Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point)
+            ForeColor = SecondaryColor,
+            Font = new Font("Segoe UI", 10f, FontStyle.Regular, GraphicsUnit.Point),
+            UseMnemonic = false,
+            Margin = new Padding(0),
+            AutoSize = true
         };
 
-        Controls.Add(_secondaryLabel);
-        Controls.Add(_primaryLabel);
-        Controls.Add(_titleLabel);
+        _trendGraph = new MiniTrendGraph
+        {
+            Dock = DockStyle.Bottom,
+            Height = 40,
+            Margin = new Padding(0),
+            Visible = true
+        };
+
+        _contentPanel.Controls.Add(_secondaryLabel);
+        _contentPanel.Controls.Add(_primaryLabel);
+        _contentPanel.Controls.Add(_titleLabel);
+        _contentPanel.Controls.Add(_trendGraph);
+        Controls.Add(_contentPanel);
+        SizeChanged += (_, _) => UpdateSecondaryLabel();
+        Paint += MetricCardPaint;
     }
 
-    public void SetValues(string primary, string secondary, Color accent)
+    public void SetValues(string primary, string secondary, Color accent, IReadOnlyList<float?> trendValues)
     {
-        _primaryLabel.Text = primary;
+        _primaryLabel.Text = string.IsNullOrWhiteSpace(primary) ? "--" : primary;
         _primaryLabel.ForeColor = accent;
-        _secondaryLabel.Text = secondary;
+        _trendGraph.SetValues(trendValues, accent);
+
+        _secondaryText = string.IsNullOrWhiteSpace(secondary)
+            ? "Informação não disponível"
+            : secondary;
+
+        UpdateSecondaryLabel();
+    }
+
+    public void SetCompactLayout(bool isCompact)
+    {
+        if (_isCompactLayout == isCompact)
+        {
+            return;
+        }
+
+        _isCompactLayout = isCompact;
+
+        if (isCompact)
+        {
+            Padding = new Padding(14, 12, 14, 12);
+            MinimumSize = new Size(0, 126);
+            _titleLabel.Height = 20;
+            _primaryLabel.Height = 38;
+            _titleLabel.Font = new Font("Segoe UI", 9.25f, FontStyle.Bold, GraphicsUnit.Point);
+            _primaryLabel.Font = new Font("Segoe UI", 19, FontStyle.Bold, GraphicsUnit.Point);
+            _secondaryLabel.Font = new Font("Segoe UI", 8.75f, FontStyle.Regular, GraphicsUnit.Point);
+            _trendGraph.Visible = false;
+        }
+        else
+        {
+            Padding = new Padding(20, 18, 20, 18);
+            MinimumSize = new Size(0, 190);
+            _titleLabel.Height = 26;
+            _primaryLabel.Height = 72;
+            _titleLabel.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold, GraphicsUnit.Point);
+            _primaryLabel.Font = new Font("Segoe UI", 27, FontStyle.Bold, GraphicsUnit.Point);
+            _secondaryLabel.Font = new Font("Segoe UI", 10f, FontStyle.Regular, GraphicsUnit.Point);
+            _trendGraph.Visible = true;
+        }
+
+        UpdateSecondaryLabel();
+    }
+
+    private void UpdateSecondaryLabel()
+    {
+        _secondaryLabel.Text = FormatSecondaryText(_secondaryText, stackLines: !_isCompactLayout);
+        int availableWidth = Math.Max(0, ClientSize.Width - Padding.Horizontal);
+        _secondaryLabel.MaximumSize = availableWidth > 0
+            ? new Size(availableWidth, 0)
+            : Size.Empty;
+    }
+
+    private static string FormatSecondaryText(string text, bool stackLines)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return "Informação não disponível";
+        }
+
+        return stackLines
+            ? text.Replace(" | ", Environment.NewLine)
+            : text;
+    }
+
+    private void MetricCardPaint(object? sender, PaintEventArgs e)
+    {
+        Rectangle bounds = ClientRectangle;
+        bounds.Width -= 1;
+        bounds.Height -= 1;
+
+        using Pen borderPen = new Pen(CardBorder);
+        using Pen accentPen = new Pen(CardAccent, 2f);
+
+        e.Graphics.DrawRectangle(borderPen, bounds);
+        e.Graphics.DrawLine(accentPen, bounds.Left + 10, bounds.Top + 1, bounds.Right - 10, bounds.Top + 1);
     }
 }
+
+class MiniTrendGraph : Control
+{
+    private static readonly Color GridColor = Color.FromArgb(45, 52, 60);
+    private static readonly Color EmptyColor = Color.FromArgb(90, 96, 104);
+    private const int MaxPoints = 30;
+
+    private readonly List<float?> _values = new List<float?>(MaxPoints);
+    private Color _accent = Color.FromArgb(78, 140, 255);
+
+    public MiniTrendGraph()
+    {
+        DoubleBuffered = true;
+        BackColor = Color.FromArgb(27, 31, 36);
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
+    }
+
+    public void SetValues(IReadOnlyList<float?> values, Color accent)
+    {
+        _accent = accent;
+        _values.Clear();
+
+        int start = Math.Max(0, values.Count - MaxPoints);
+        for (int i = start; i < values.Count; i++)
+        {
+            _values.Add(values[i]);
+        }
+
+        Invalidate();
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        Rectangle bounds = ClientRectangle;
+
+        using Pen gridPen = new Pen(GridColor);
+        using Pen linePen = new Pen(_accent, 2f);
+        using Brush fillBrush = new SolidBrush(Color.FromArgb(35, _accent));
+        using Brush emptyBrush = new SolidBrush(EmptyColor);
+
+        int midY = bounds.Top + bounds.Height / 2;
+        e.Graphics.DrawLine(gridPen, bounds.Left, midY, bounds.Right, midY);
+
+        if (_values.Count < 2 || !_values.Any(value => value.HasValue))
+        {
+            e.Graphics.FillEllipse(emptyBrush, bounds.Left + 2, bounds.Top + bounds.Height / 2 - 2, 4, 4);
+            return;
+        }
+
+        List<PointF> points = new List<PointF>(_values.Count);
+        float min = float.MaxValue;
+        float max = float.MinValue;
+
+        foreach (float? value in _values)
+        {
+            if (!value.HasValue)
+            {
+                continue;
+            }
+
+            min = Math.Min(min, value.Value);
+            max = Math.Max(max, value.Value);
+        }
+
+        if (min == float.MaxValue || max == float.MinValue)
+        {
+            return;
+        }
+
+        float range = Math.Max(1f, max - min);
+        float stepX = _values.Count > 1 ? (float)bounds.Width / (float)(_values.Count - 1) : bounds.Width;
+
+        for (int i = 0; i < _values.Count; i++)
+        {
+            float? value = _values[i];
+            if (!value.HasValue)
+            {
+                continue;
+            }
+
+            float x = bounds.Left + i * stepX;
+            float y = bounds.Bottom - 1 - ((value.Value - min) / range * Math.Max(1, bounds.Height - 2));
+            points.Add(new PointF(x, y));
+        }
+
+        if (points.Count < 2)
+        {
+            return;
+        }
+
+        e.Graphics.FillPolygon(fillBrush, BuildFillPolygon(points, bounds));
+        e.Graphics.DrawLines(linePen, points.ToArray());
+    }
+
+    private static PointF[] BuildFillPolygon(List<PointF> points, Rectangle bounds)
+    {
+        List<PointF> polygon = new List<PointF>(points.Count + 2);
+        polygon.Add(new PointF(points[0].X, bounds.Bottom - 1));
+        polygon.AddRange(points);
+        polygon.Add(new PointF(points[^1].X, bounds.Bottom - 1));
+        return polygon.ToArray();
+    }
+}
+
+class ShortTrendHistory
+{
+    private const int MaxPoints = 30;
+    private readonly Queue<float?> _values = new Queue<float?>(MaxPoints);
+
+    public IReadOnlyList<float?> Values => _values.ToArray();
+
+    public void Add(float? value)
+    {
+        _values.Enqueue(value);
+        while (_values.Count > MaxPoints)
+        {
+            _values.Dequeue();
+        }
+    }
+}
+
+
