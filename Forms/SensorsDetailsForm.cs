@@ -34,6 +34,7 @@ class SensorsDetailsForm : Form
     private static readonly Color WarningColor = Color.FromArgb(255, 185, 0);
 
     private readonly HardwareMonitorService _hardwareMonitor;
+    private readonly HardwareSelectionService _hardwareSelectionService;
     private readonly Icon? _ownedIcon;
     private readonly TreeView _sensorsTree;
     private readonly Label _statusLabel;
@@ -45,9 +46,10 @@ class SensorsDetailsForm : Form
     private List<SensorReading> _allSensors = new();
     private DateTime? _lastUpdatedAt;
 
-    public SensorsDetailsForm(HardwareMonitorService hardwareMonitor, Icon? windowIcon = null)
+    public SensorsDetailsForm(HardwareMonitorService hardwareMonitor, HardwareSelectionService hardwareSelectionService, Icon? windowIcon = null)
     {
         _hardwareMonitor = hardwareMonitor ?? throw new ArgumentNullException(nameof(hardwareMonitor));
+        _hardwareSelectionService = hardwareSelectionService ?? throw new ArgumentNullException(nameof(hardwareSelectionService));
         _sensorIcons = CreateSensorImageList();
 
         Text = "Conferir todos os sensores";
@@ -254,7 +256,12 @@ class SensorsDetailsForm : Form
             _statusLabel.ForeColor = MutedText;
             _statusLabel.Text = "Atualizando sensores...";
 
-            _allSensors = _hardwareMonitor.ReadAllSensors();
+            _allSensors = _hardwareMonitor.ReadAllSensors()
+                .Where(sensor => _hardwareSelectionService.IsHardwareSelected(
+                    sensor.HardwareType.ToString(),
+                    sensor.HardwareName,
+                    sensor.HardwareIdentifier))
+                .ToList();
             _lastUpdatedAt = DateTime.Now;
 
             ApplySensorFilter();
@@ -394,6 +401,14 @@ class SensorsDetailsForm : Form
         if (totalSensorCount == 0)
         {
             _statusLabel.Text = $"Nenhum sensor encontrado. Última atualização: {updatedAt}";
+            return;
+        }
+
+        if (_hardwareSelectionService.HasActiveSelection())
+        {
+            _statusLabel.Text = hasActiveFilter
+                ? $"Exibindo {visibleSensorCount} de {totalSensorCount} sensores | Filtro de hardware ativo ({_hardwareSelectionService.GetSelectedCount()} selecionados) | Última atualização: {updatedAt}"
+                : $"Total de sensores: {totalSensorCount} | Filtro de hardware ativo ({_hardwareSelectionService.GetSelectedCount()} selecionados) | Última atualização: {updatedAt}";
             return;
         }
 

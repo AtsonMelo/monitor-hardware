@@ -14,7 +14,6 @@ class HardwareSelectionForm : Form
     private static readonly Color MutedText = Color.FromArgb(170, 176, 184);
 
     private readonly HardwareSelectionService _selectionService;
-    private readonly HardwareMonitorService _hardwareMonitor;
     private readonly Icon? _ownedIcon;
     private readonly DataGridView _grid;
     private readonly Button _refreshButton;
@@ -25,10 +24,9 @@ class HardwareSelectionForm : Form
     private readonly Label _statusLabel;
     private BindingList<HardwareSelectionItem> _items = new();
 
-    public HardwareSelectionForm(HardwareMonitorService hardwareMonitor, Icon? windowIcon = null)
+    public HardwareSelectionForm(HardwareSelectionService selectionService, Icon? windowIcon = null)
     {
-        _hardwareMonitor = hardwareMonitor;
-        _selectionService = new HardwareSelectionService(_hardwareMonitor);
+        _selectionService = selectionService ?? throw new ArgumentNullException(nameof(selectionService));
 
         Text = "Selecionar hardwares monitorados";
         AutoScaleMode = AutoScaleMode.Dpi;
@@ -315,6 +313,6 @@ class HardwareSelectionForm : Form
     {
         int totalDetected = _items.Count;
         int totalSelected = _items.Count(item => item.IsSelected);
-        _statusLabel.Text = $"Total detectado: {totalDetected} | Total selecionado: {totalSelected}";
+        _statusLabel.Text = $"Total detectado: {totalDetected} | Total selecionado: {totalSelected} | Seleção ativa em memória: {_selectionService.GetSelectedCount()}";
     }
 }

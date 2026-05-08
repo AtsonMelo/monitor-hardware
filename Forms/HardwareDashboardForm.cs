@@ -20,6 +20,7 @@ class HardwareDashboardForm : Form
     private readonly CsvLoggerService _csvLogger;
     private readonly UpdateService _updateService;
     private readonly StartupTaskService _startupTaskService;
+    private readonly HardwareSelectionService _hardwareSelectionService;
     private readonly System.Windows.Forms.Timer _timer;
     private readonly Icon _windowIcon;
     private readonly ToolTip _headerToolTip = new ToolTip();
@@ -47,7 +48,7 @@ class HardwareDashboardForm : Form
     private readonly ShortTrendHistory _gpuTrendHistory = new ShortTrendHistory();
     private readonly ShortTrendHistory _ramTrendHistory = new ShortTrendHistory();
     private readonly ShortTrendHistory _ssdTrendHistory = new ShortTrendHistory();
-    private HardwareMonitorService? _hardwareMonitor;
+    private readonly HardwareMonitorService _hardwareMonitor;
     private SensorsDetailsForm? _sensorsDetailsForm;
     private HardwareSelectionForm? _hardwareSelectionForm;
     private SensorOriginsForm? _sensorOriginsForm;
@@ -59,6 +60,8 @@ class HardwareDashboardForm : Form
     {
         _config = config;
         _snapshotService = new SnapshotService(config);
+        _hardwareMonitor = new HardwareMonitorService();
+        _hardwareSelectionService = new HardwareSelectionService(_hardwareMonitor);
         _csvLogger = new CsvLoggerService();
         _updateService = new UpdateService();
         _startupTaskService = new StartupTaskService();
@@ -113,6 +116,7 @@ class HardwareDashboardForm : Form
             _timer.Dispose();
             _helpMenu.Dispose();
             _headerToolTip.Dispose();
+            _hardwareMonitor.Dispose();
             _windowIcon.Dispose();
         };
     }
@@ -568,8 +572,6 @@ class HardwareDashboardForm : Form
     {
         try
         {
-            _hardwareMonitor ??= new HardwareMonitorService();
-
             if (_sensorsDetailsForm is { IsDisposed: false })
             {
                 if (_sensorsDetailsForm.WindowState == FormWindowState.Minimized)
@@ -582,7 +584,7 @@ class HardwareDashboardForm : Form
                 return;
             }
 
-            _sensorsDetailsForm = new SensorsDetailsForm(_hardwareMonitor, _windowIcon);
+            _sensorsDetailsForm = new SensorsDetailsForm(_hardwareMonitor, _hardwareSelectionService, _windowIcon);
             _sensorsDetailsForm.FormClosed += (_, _) => _sensorsDetailsForm = null;
             _sensorsDetailsForm.Show(this);
         }
@@ -602,8 +604,6 @@ class HardwareDashboardForm : Form
     {
         try
         {
-            _hardwareMonitor ??= new HardwareMonitorService();
-
             if (_hardwareSelectionForm is { IsDisposed: false })
             {
                 if (_hardwareSelectionForm.WindowState == FormWindowState.Minimized)
@@ -616,7 +616,7 @@ class HardwareDashboardForm : Form
                 return;
             }
 
-            _hardwareSelectionForm = new HardwareSelectionForm(_hardwareMonitor, _windowIcon);
+            _hardwareSelectionForm = new HardwareSelectionForm(_hardwareSelectionService, _windowIcon);
             _hardwareSelectionForm.FormClosed += (_, _) => _hardwareSelectionForm = null;
             _hardwareSelectionForm.Show(this);
         }
@@ -668,8 +668,6 @@ class HardwareDashboardForm : Form
     {
         try
         {
-            _hardwareMonitor ??= new HardwareMonitorService();
-
             List<SensorReading> sensors = _hardwareMonitor.ReadAllSensors();
             MonitorSnapshot snapshot = _snapshotService.Create(sensors);
 
