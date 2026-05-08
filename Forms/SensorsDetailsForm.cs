@@ -684,15 +684,19 @@ class SensorsDetailsForm : Form
 
     private static void DrawGpuIcon(Graphics graphics, Rectangle bounds, Color accent)
     {
-        using SolidBrush fillBrush = new SolidBrush(Color.FromArgb(155, accent));
-        using Pen borderPen = new Pen(Color.FromArgb(235, accent), 1);
+        using SolidBrush boardBrush = new SolidBrush(Color.FromArgb(130, accent));
+        using Pen borderPen = new Pen(Color.FromArgb(240, accent), 1);
         using SolidBrush fanBrush = new SolidBrush(Color.FromArgb(220, PanelBackground));
+        using Pen pinPen = new Pen(Color.FromArgb(180, accent), 1);
 
-        graphics.FillRectangle(fillBrush, 2, 5, 11, 7);
-        graphics.DrawRectangle(borderPen, 2, 5, 11, 7);
-        graphics.FillRectangle(fillBrush, 13, 7, 2, 3);
-        graphics.FillEllipse(fanBrush, 5, 6, 5, 5);
-        graphics.DrawEllipse(borderPen, 5, 6, 5, 5);
+        graphics.FillRectangle(boardBrush, 2, 4, 11, 8);
+        graphics.DrawRectangle(borderPen, 2, 4, 11, 8);
+        graphics.FillRectangle(boardBrush, 13, 6, 2, 4);
+        graphics.FillEllipse(fanBrush, 4, 5, 4, 4);
+        graphics.FillEllipse(fanBrush, 8, 5, 4, 4);
+        graphics.DrawEllipse(borderPen, 4, 5, 4, 4);
+        graphics.DrawEllipse(borderPen, 8, 5, 4, 4);
+        graphics.DrawLine(pinPen, 3, 13, 12, 13);
     }
 
     private static void DrawMemoryIcon(Graphics graphics, Rectangle bounds, Color accent)

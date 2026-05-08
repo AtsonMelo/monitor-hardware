@@ -40,6 +40,7 @@ class SensorLiveMonitorForm : Form
     private readonly Dictionary<string, Label> _valueLabels = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Label> _bitLabels = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, RichTextBox> _bitRichTextBoxes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Label> _oscilloscopeMetricLabels = new(StringComparer.OrdinalIgnoreCase);
     private readonly string _hardwareName;
     private readonly string _hardwareType;
     private readonly string _hardwareIdentifier;
@@ -57,16 +58,15 @@ class SensorLiveMonitorForm : Form
     private int _sampleCount;
     private uint? _previousFloatBits;
     private readonly OscilloscopePanel _oscilloscopePanel;
-    private readonly List<float?> _oscilloscopeSamples = new();
-    private readonly float[] _oscilloscopeRenderedSamples = new float[256];
-    private const int OscilloscopeBufferSize = 512;
+    private readonly List<OscilloscopeSample> _oscilloscopeSamples = new();
+    private const int OscilloscopeBufferSize = 600;
     private bool _hasOscilloscopeSignal;
     private bool _oscilloscopeRunning = true;
     private bool _oscilloscopeHasRenderedFrame;
-    private float _oscilloscopeLastSourceOffset;
-    private float _oscilloscopeLastSourcePeak = 1f;
-    private float _oscilloscopeLastSourceAverage;
-    private float _oscilloscopeNoiseSeed;
+    private string _oscilloscopeAxisUnit = "--";
+    private Label _oscilloscopeTitleLabel = null!;
+    private Label _oscilloscopeSensorLabel = null!;
+    private Label _oscilloscopeStateLabel = null!;
     private readonly ComboBox _oscilloscopeCouplingCombo;
     private readonly ComboBox _oscilloscopeTriggerModeCombo;
     private readonly ComboBox _oscilloscopeTriggerEdgeCombo;
@@ -102,12 +102,13 @@ class SensorLiveMonitorForm : Form
         Text = "Monitorar sensor";
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterParent;
-        MinimumSize = new Size(980, 640);
-        Size = new Size(1180, 760);
+        MinimumSize = new Size(980, 680);
+        Size = new Size(1280, 860);
         BackColor = WindowBackground;
         ForeColor = MainText;
         Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point);
         ShowInTaskbar = false;
+        ApplyNotebookWindowMode();
 
         if (windowIcon != null)
         {
@@ -174,7 +175,7 @@ class SensorLiveMonitorForm : Form
         _oscilloscopeTriggerModeCombo = BuildOscilloscopeComboBox("Auto", "Normal", "Single");
         _oscilloscopeTriggerEdgeCombo = BuildOscilloscopeComboBox("Subida", "Descida");
         _oscilloscopeTriggerLevelTrackBar = BuildOscilloscopeTrackBar();
-        _oscilloscopeTimebaseUpDown = BuildOscilloscopeNumericUpDown(0.1m, 50m, 5m, 0.1m);
+        _oscilloscopeTimebaseUpDown = BuildOscilloscopeNumericUpDown(0.5m, 30m, 5m, 0.5m);
         _oscilloscopeVoltsPerDivUpDown = BuildOscilloscopeNumericUpDown(0.05m, 5m, 0.5m, 0.05m);
         _oscilloscopeRunStopButton = BuildDarkButton("Stop");
         _oscilloscopeResetButton = BuildDarkButton("Reset");
@@ -259,6 +260,20 @@ class SensorLiveMonitorForm : Form
         FormClosing += (_, _) => _timer.Stop();
     }
 
+    private void ApplyNotebookWindowMode()
+    {
+        Rectangle workingArea = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 720);
+        bool compactScreen =
+            workingArea.Width <= 1366 ||
+            workingArea.Height <= 768 ||
+            DeviceDpi > 120;
+
+        if (compactScreen)
+        {
+            WindowState = FormWindowState.Maximized;
+        }
+    }
+
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
@@ -282,7 +297,8 @@ class SensorLiveMonitorForm : Form
         {
             Dock = DockStyle.Fill,
             AutoSize = true,
-            WrapContents = false,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = true,
             FlowDirection = FlowDirection.LeftToRight,
             BackColor = WindowBackground,
             Margin = new Padding(0, 0, 0, 12),
@@ -330,10 +346,11 @@ class SensorLiveMonitorForm : Form
             Dock = DockStyle.Fill,
             BackColor = WindowBackground,
             Padding = new Padding(0),
-            Margin = new Padding(0)
+            Margin = new Padding(0),
+            AutoScroll = true
         };
 
-        content.Dock = DockStyle.Fill;
+        content.Dock = DockStyle.Top;
         host.Controls.Add(content);
         return host;
     }
@@ -343,15 +360,17 @@ class SensorLiveMonitorForm : Form
         Button button = new()
         {
             Text = text,
-            AutoSize = false,
-            Height = 38,
-            MinimumSize = new Size(144, 38),
-            Margin = new Padding(0, 0, 8, 0),
-            Padding = new Padding(18, 0, 18, 0),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Height = 40,
+            MinimumSize = new Size(152, 40),
+            Margin = new Padding(0, 0, 6, 0),
+            Padding = new Padding(14, 0, 14, 0),
             FlatStyle = FlatStyle.Flat,
             BackColor = ButtonBackground,
             ForeColor = Color.FromArgb(194, 199, 206),
-            UseVisualStyleBackColor = false
+            UseVisualStyleBackColor = false,
+            AutoEllipsis = true
         };
         button.FlatAppearance.BorderColor = ButtonBorder;
         button.FlatAppearance.MouseOverBackColor = Color.FromArgb(44, 50, 57);
@@ -375,14 +394,17 @@ class SensorLiveMonitorForm : Form
 
     private Panel BuildOscilloscopePanel()
     {
-        Panel controls = BuildOscilloscopeControlsBar();
         _oscilloscopePanel.Dock = DockStyle.Fill;
         _oscilloscopePanel.BackColor = Color.FromArgb(8, 10, 12);
-        _oscilloscopePanel.BorderStyle = BorderStyle.FixedSingle;
+        _oscilloscopePanel.BorderStyle = BorderStyle.None;
         _oscilloscopePanel.Paint += OscilloscopePanel_Paint;
         _oscilloscopePanel.Resize += (_, _) => _oscilloscopePanel.Invalidate();
 
-        Panel host = new()
+        _oscilloscopeTitleLabel = BuildSectionLabel("Scope virtual");
+        _oscilloscopeSensorLabel = BuildOscilloscopeInfoLabel("Coletando amostras...");
+        _oscilloscopeStateLabel = BuildOscilloscopeInfoLabel("Coletando amostras...");
+
+        TableLayoutPanel host = new()
         {
             Dock = DockStyle.Top,
             AutoSize = true,
@@ -391,33 +413,62 @@ class SensorLiveMonitorForm : Form
             Margin = new Padding(0)
         };
 
-        controls.Dock = DockStyle.Top;
-        host.Controls.Add(_oscilloscopePanel);
-        host.Controls.Add(controls);
+        host.ColumnCount = 1;
+        host.RowCount = 4;
+        host.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        host.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        host.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        host.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        host.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        host.Controls.Add(BuildOscilloscopeHeaderPanel(), 0, 0);
+        host.Controls.Add(BuildOscilloscopeControlsBar(), 0, 1);
+        host.Controls.Add(_oscilloscopePanel, 0, 2);
+        host.Controls.Add(BuildOscilloscopeMetricsPanel(), 0, 3);
         _oscilloscopePanel.Height = 340;
         return host;
     }
 
-    private Panel BuildOscilloscopeControlsBar()
+    private TableLayoutPanel BuildOscilloscopeHeaderPanel()
     {
-        TableLayoutPanel bar = new()
+        TableLayoutPanel panel = new()
         {
             Dock = DockStyle.Top,
             AutoSize = true,
-            ColumnCount = 4,
+            ColumnCount = 1,
+            BackColor = PanelBackground,
+            Margin = new Padding(0, 0, 0, 10),
+            Padding = new Padding(14, 12, 14, 8)
+        };
+        panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        panel.Controls.Add(_oscilloscopeTitleLabel, 0, 0);
+        panel.Controls.Add(_oscilloscopeSensorLabel, 0, 1);
+        panel.Controls.Add(_oscilloscopeStateLabel, 0, 2);
+        return panel;
+    }
+
+    private Panel BuildOscilloscopeControlsBar()
+    {
+        FlowLayoutPanel bar = new()
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
             BackColor = PanelBackground,
             Margin = new Padding(0),
-            Padding = new Padding(10)
+            Padding = new Padding(10, 10, 10, 6)
         };
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
-        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16));
 
-        bar.Controls.Add(BuildOscilloscopeCouplingPanel(), 0, 0);
-        bar.Controls.Add(BuildOscilloscopeTriggerPanel(), 1, 0);
-        bar.Controls.Add(BuildOscilloscopeTimeScalePanel(), 2, 0);
-        bar.Controls.Add(BuildOscilloscopeActionsPanel(), 3, 0);
+        bar.Controls.Add(BuildOscilloscopeCouplingPanel());
+        bar.Controls.Add(BuildOscilloscopeTriggerPanel());
+        bar.Controls.Add(BuildOscilloscopeTimeScalePanel());
+        bar.Controls.Add(BuildOscilloscopeActionsPanel());
         return bar;
     }
 
@@ -440,8 +491,8 @@ class SensorLiveMonitorForm : Form
     private Panel BuildOscilloscopeTimeScalePanel()
     {
         TableLayoutPanel panel = BuildOscilloscopeGroupBase("Escalas");
-        panel.Controls.Add(BuildOscilloscopeLabeledRow("Base de tempo", BuildOscilloscopeNumericHost(_oscilloscopeTimebaseUpDown, _oscilloscopeTimebaseValueLabel, "ms/div")), 0, 1);
-        panel.Controls.Add(BuildOscilloscopeLabeledRow("Escala vertical", BuildOscilloscopeNumericHost(_oscilloscopeVoltsPerDivUpDown, _oscilloscopeVoltsPerDivValueLabel, "V/div")), 0, 2);
+        panel.Controls.Add(BuildOscilloscopeLabeledRow("Tempo/div", BuildOscilloscopeNumericHost(_oscilloscopeTimebaseUpDown, _oscilloscopeTimebaseValueLabel, "s/div")), 0, 1);
+        panel.Controls.Add(BuildOscilloscopeLabeledRow("Escala vertical", BuildOscilloscopeNumericHost(_oscilloscopeVoltsPerDivUpDown, _oscilloscopeVoltsPerDivValueLabel, "unid./div")), 0, 2);
         return WrapOscilloscopeGroup(panel);
     }
 
@@ -465,9 +516,12 @@ class SensorLiveMonitorForm : Form
     {
         Panel host = new()
         {
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             BackColor = PanelBackground,
-            Margin = new Padding(4)
+            Margin = new Padding(4),
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            MinimumSize = new Size(220, 0)
         };
         TableLayoutPanel wrapper = new()
         {
@@ -564,6 +618,22 @@ class SensorLiveMonitorForm : Form
         return host;
     }
 
+    private static Label BuildOscilloscopeInfoLabel(string text)
+    {
+        return new Label
+        {
+            Dock = DockStyle.Fill,
+            AutoEllipsis = true,
+            ForeColor = MutedText,
+            BackColor = PanelBackground,
+            Margin = new Padding(0, 2, 0, 0),
+            Text = text,
+            Height = 24,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = new Font("Segoe UI", 9.25f, FontStyle.Regular, GraphicsUnit.Point)
+        };
+    }
+
     private static ComboBox BuildOscilloscopeComboBox(params string[] items)
     {
         ComboBox comboBox = new()
@@ -644,6 +714,84 @@ class SensorLiveMonitorForm : Form
         };
     }
 
+    private Control BuildOscilloscopeMetricsPanel()
+    {
+        TableLayoutPanel panel = new()
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 4,
+            RowCount = 2,
+            BackColor = PanelBackground,
+            Margin = new Padding(0, 10, 0, 0),
+            Padding = new Padding(10, 8, 10, 10)
+        };
+
+        for (int i = 0; i < 4; i++)
+        {
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+        }
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        panel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        panel.Controls.Add(BuildOscilloscopeMetricTile("Atual", "current", 0, 0), 0, 0);
+        panel.Controls.Add(BuildOscilloscopeMetricTile("Mínimo", "min", 1, 0), 1, 0);
+        panel.Controls.Add(BuildOscilloscopeMetricTile("Máximo", "max", 2, 0), 2, 0);
+        panel.Controls.Add(BuildOscilloscopeMetricTile("Médio", "average", 3, 0), 3, 0);
+        panel.Controls.Add(BuildOscilloscopeMetricTile("Pico a pico", "peak_to_peak", 0, 1), 0, 1);
+        panel.Controls.Add(BuildOscilloscopeMetricTile("Delta", "delta", 1, 1), 1, 1);
+        panel.Controls.Add(BuildOscilloscopeMetricTile("Taxa/s", "rate", 2, 1), 2, 1);
+        panel.Controls.Add(BuildOscilloscopeMetricTile("Janela", "window", 3, 1), 3, 1);
+
+        return panel;
+    }
+
+    private Control BuildOscilloscopeMetricTile(string title, string key, int column, int row)
+    {
+        TableLayoutPanel tile = new()
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            BackColor = Color.FromArgb(20, 23, 27),
+            Margin = new Padding(4),
+            Padding = new Padding(10, 8, 10, 8)
+        };
+        tile.ColumnCount = 1;
+        tile.RowCount = 2;
+        tile.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        tile.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        tile.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        Label titleLabel = new()
+        {
+            Dock = DockStyle.Fill,
+            AutoEllipsis = true,
+            ForeColor = Color.FromArgb(170, 176, 184),
+            BackColor = tile.BackColor,
+            Text = title,
+            Height = 20,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = new Font("Segoe UI", 8.75f, FontStyle.Bold, GraphicsUnit.Point)
+        };
+
+        Label valueLabel = new()
+        {
+            Dock = DockStyle.Fill,
+            AutoEllipsis = true,
+            ForeColor = MainText,
+            BackColor = tile.BackColor,
+            Text = "--",
+            Height = 22,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = new Font("Segoe UI", 10.25f, FontStyle.Bold, GraphicsUnit.Point)
+        };
+
+        _oscilloscopeMetricLabels[key] = valueLabel;
+        tile.Controls.Add(titleLabel, 0, 0);
+        tile.Controls.Add(valueLabel, 0, 1);
+        return tile;
+    }
+
     private static void UpdateTabButtonState(Button button, bool isActive)
     {
         button.BackColor = isActive ? Color.FromArgb(39, 44, 50) : ButtonBackground;
@@ -699,6 +847,7 @@ class SensorLiveMonitorForm : Form
 
     private TableLayoutPanel BuildBitInspectorPanel()
     {
+        // Futuro: canais digitais 0/1 para instrumentos próprios/autorizados, sem captura indevida.
         TableLayoutPanel panel = new()
         {
             Dock = DockStyle.Top,
@@ -943,6 +1092,7 @@ class SensorLiveMonitorForm : Form
             _valueLabels["max"].Text = "--";
             _valueLabels["delta"].Text = "--";
             _valueLabels["samples"].Text = _sampleCount.ToString(CultureInfo.CurrentCulture);
+            _oscilloscopeStateLabel.Text = "Coletando amostras...";
             SetBitFieldsToMissing();
             return;
         }
@@ -967,6 +1117,9 @@ class SensorLiveMonitorForm : Form
         _valueLabels["delta"].Text = FormatRawValue(delta);
         _valueLabels["samples"].Text = _sampleCount.ToString(CultureInfo.CurrentCulture);
         _statusLabel.Text = $"Última atualização: {timestamp}";
+        _oscilloscopeTitleLabel.Text = $"{reading.SensorName}";
+        _oscilloscopeSensorLabel.Text = $"{reading.HardwareName} · {reading.HardwareType} · {reading.SensorType} · {GetSensorUnit(reading.SensorType.ToString())}";
+        _oscilloscopeStateLabel.Text = $"Última leitura: {timestamp}";
         UpdateBitInspector(reading.Value);
         UpdateOscilloscope(reading.Value);
 
@@ -995,47 +1148,46 @@ class SensorLiveMonitorForm : Form
         if (!value.HasValue)
         {
             _oscilloscopeSamples.Clear();
-            Array.Clear(_oscilloscopeRenderedSamples, 0, _oscilloscopeRenderedSamples.Length);
             _oscilloscopeHasRenderedFrame = false;
+            _oscilloscopeAxisUnit = GetSensorUnit(_sensorType);
+            UpdateOscilloscopeMetrics(Array.Empty<OscilloscopeSample>(), null, null, null, null, null, null, null, null, "Coletando amostras...");
             _oscilloscopePanel.Invalidate();
             return;
         }
 
         AppendOscilloscopeSample(value.Value);
-        UpdateOscilloscopeStatistics();
         RefreshOscilloscopeRender(force: _oscilloscopeRunning || !_oscilloscopeHasRenderedFrame);
     }
 
     private void AppendOscilloscopeSample(float value)
     {
-        _oscilloscopeSamples.Add(value);
+        DateTime timestamp = DateTime.Now;
+        _oscilloscopeSamples.Add(new OscilloscopeSample(timestamp, value));
+        TrimOscilloscopeBuffer(timestamp);
+
         while (_oscilloscopeSamples.Count > OscilloscopeBufferSize)
         {
             _oscilloscopeSamples.RemoveAt(0);
         }
     }
 
-    private void UpdateOscilloscopeStatistics()
+    private void TrimOscilloscopeBuffer(DateTime latestTimestamp)
     {
-        if (_oscilloscopeSamples.Count == 0)
-        {
-            _oscilloscopeLastSourceAverage = 0f;
-            _oscilloscopeLastSourcePeak = 1f;
-            _oscilloscopeLastSourceOffset = 0f;
-            return;
-        }
+        DateTime cutoff = latestTimestamp - TimeSpan.FromMinutes(12);
+        _oscilloscopeSamples.RemoveAll(sample => sample.Timestamp < cutoff);
 
-        _oscilloscopeLastSourceAverage = _oscilloscopeSamples.Average(sample => sample ?? 0f);
-        _oscilloscopeLastSourcePeak = Math.Max(0.05f, _oscilloscopeSamples.Max(sample => Math.Abs(sample ?? 0f)));
-        _oscilloscopeLastSourceOffset = _oscilloscopeLastSourceAverage;
+        while (_oscilloscopeSamples.Count > OscilloscopeBufferSize)
+        {
+            _oscilloscopeSamples.RemoveAt(0);
+        }
     }
 
     private void RefreshOscilloscopeRender(bool force)
     {
         if (!_hasOscilloscopeSignal)
         {
-            Array.Clear(_oscilloscopeRenderedSamples, 0, _oscilloscopeRenderedSamples.Length);
             _oscilloscopeHasRenderedFrame = false;
+            UpdateOscilloscopeMetrics(Array.Empty<OscilloscopeSample>(), null, null, null, null, null, null, null, null, "Coletando amostras...");
             _oscilloscopePanel.Invalidate();
             return;
         }
@@ -1045,57 +1197,127 @@ class SensorLiveMonitorForm : Form
             return;
         }
 
+        List<OscilloscopeSample> visibleSamples = GetVisibleOscilloscopeSamples();
+        if (visibleSamples.Count == 0)
+        {
+            _oscilloscopeHasRenderedFrame = false;
+            UpdateOscilloscopeMetrics(Array.Empty<OscilloscopeSample>(), null, null, null, null, null, null, null, null, "Coletando amostras...");
+            _oscilloscopePanel.Invalidate();
+            return;
+        }
+
         float timebase = (float)_oscilloscopeTimebaseUpDown.Value;
-        float voltsPerDiv = (float)_oscilloscopeVoltsPerDivUpDown.Value;
-        float triggerLevel = (_oscilloscopeTriggerLevelTrackBar.Value - 50f) / 50f;
         bool acCoupling = string.Equals(_oscilloscopeCouplingCombo.SelectedItem as string, "AC", StringComparison.OrdinalIgnoreCase);
+        float triggerLevel = (_oscilloscopeTriggerLevelTrackBar.Value - 50f) / 50f;
         bool risingEdge = string.Equals(_oscilloscopeTriggerEdgeCombo.SelectedItem as string, "Subida", StringComparison.OrdinalIgnoreCase);
         string triggerMode = _oscilloscopeTriggerModeCombo.SelectedItem as string ?? "Auto";
-        int startIndex = FindTriggerStartIndex(triggerLevel, risingEdge, triggerMode);
-        int sourceCount = _oscilloscopeSamples.Count;
-        int visibleSamples = Math.Max(32, Math.Min(OscilloscopeBufferSize, (int)Math.Round(120 / timebase)));
-        int sampleStep = Math.Max(1, sourceCount / visibleSamples);
-        float verticalScale = Math.Clamp(1.5f / voltsPerDiv, 0.2f, 10f);
-        float displayOffset = acCoupling ? _oscilloscopeLastSourceAverage : 0f;
-
-        for (int i = 0; i < _oscilloscopeRenderedSamples.Length; i++)
-        {
-            int sourcePos = Math.Min(sourceCount - 1, startIndex + (i * sampleStep));
-            float sample = GetOscilloscopeSample(sourcePos);
-            if (acCoupling)
-            {
-                sample -= displayOffset;
-            }
-
-            sample *= verticalScale;
-            sample += GetOscilloscopeNoise(i);
-            _oscilloscopeRenderedSamples[i] = Math.Clamp(sample, -1f, 1f);
-        }
+        OscilloscopeWindow window = CalculateOscilloscopeWindow(visibleSamples, timebase, triggerLevel, risingEdge, triggerMode);
+        List<float> displaySamples = BuildDisplaySamples(visibleSamples, acCoupling);
+        OscilloscopeStatistics statistics = CalculateStatistics(visibleSamples, displaySamples);
+        UpdateOscilloscopeMetrics(
+            visibleSamples,
+            statistics.Current,
+            statistics.Minimum,
+            statistics.Maximum,
+            statistics.Average,
+            statistics.PeakToPeak,
+            statistics.Delta,
+            statistics.RatePerSecond,
+            window,
+            BuildOscilloscopeStatusText(visibleSamples, statistics, acCoupling));
 
         _oscilloscopeHasRenderedFrame = true;
         _oscilloscopeTriggerLevelValueLabel.Text = $"{((_oscilloscopeTriggerLevelTrackBar.Value - 50f) / 50f):0.00}";
-        _oscilloscopeTimebaseValueLabel.Text = $"{timebase:0.0} ms/div";
-        _oscilloscopeVoltsPerDivValueLabel.Text = $"{voltsPerDiv:0.00} V/div";
+        _oscilloscopeTimebaseValueLabel.Text = $"{timebase:0.0} s/div";
+        _oscilloscopeVoltsPerDivValueLabel.Text = $"{(float)_oscilloscopeVoltsPerDivUpDown.Value:0.00} {_oscilloscopeAxisUnit}/div";
         _oscilloscopeRunStopButton.Text = _oscilloscopeRunning ? "Stop" : "Run";
         _oscilloscopePanel.Invalidate();
     }
 
-    private int FindTriggerStartIndex(float triggerLevel, bool risingEdge, string triggerMode)
+    private List<OscilloscopeSample> GetVisibleOscilloscopeSamples()
     {
-        if (_oscilloscopeSamples.Count < 2)
+        if (_oscilloscopeSamples.Count == 0)
         {
-            return 0;
+            return new List<OscilloscopeSample>();
         }
 
-        float min = _oscilloscopeSamples.Min(sample => sample ?? 0f);
-        float max = _oscilloscopeSamples.Max(sample => sample ?? 0f);
+        OscilloscopeWindow window = CalculateOscilloscopeWindow(
+            _oscilloscopeSamples,
+            (float)_oscilloscopeTimebaseUpDown.Value,
+            (_oscilloscopeTriggerLevelTrackBar.Value - 50f) / 50f,
+            string.Equals(_oscilloscopeTriggerEdgeCombo.SelectedItem as string, "Subida", StringComparison.OrdinalIgnoreCase),
+            _oscilloscopeTriggerModeCombo.SelectedItem as string ?? "Auto");
+
+        List<OscilloscopeSample> visibleSamples = _oscilloscopeSamples
+            .Where(sample => sample.Timestamp >= window.Start && sample.Timestamp <= window.End)
+            .ToList();
+
+        if (visibleSamples.Count == 0)
+        {
+            visibleSamples.Add(_oscilloscopeSamples[^1]);
+        }
+
+        return visibleSamples;
+    }
+
+    private OscilloscopeWindow CalculateOscilloscopeWindow(
+        IReadOnlyList<OscilloscopeSample> samples,
+        float timebase,
+        float triggerLevel,
+        bool risingEdge,
+        string triggerMode)
+    {
+        if (samples.Count == 0)
+        {
+            DateTime now = DateTime.Now;
+            return new OscilloscopeWindow(now.AddSeconds(-10), now);
+        }
+
+        DateTime end = samples[^1].Timestamp;
+        TimeSpan visibleSpan = TimeSpan.FromSeconds(Math.Max(10.0, timebase * 10.0));
+        DateTime start = end - visibleSpan;
+
+        if (!string.Equals(triggerMode, "Auto", StringComparison.OrdinalIgnoreCase) && samples.Count > 1)
+        {
+            int triggerIndex = FindTriggerStartIndex(samples, triggerLevel, risingEdge, triggerMode);
+            if (triggerIndex >= 0)
+            {
+                DateTime triggerTime = samples[triggerIndex].Timestamp;
+                DateTime triggeredStart = triggerTime - TimeSpan.FromSeconds(Math.Max(6.0, visibleSpan.TotalSeconds * 0.2));
+                start = triggeredStart;
+                end = start + visibleSpan;
+            }
+        }
+
+        if (string.Equals(triggerMode, "Auto", StringComparison.OrdinalIgnoreCase) && end < samples[^1].Timestamp)
+        {
+            end = samples[^1].Timestamp;
+            start = end - visibleSpan;
+        }
+
+        return new OscilloscopeWindow(start, end);
+    }
+
+    private static int FindTriggerStartIndex(
+        IReadOnlyList<OscilloscopeSample> samples,
+        float triggerLevel,
+        bool risingEdge,
+        string triggerMode)
+    {
+        if (samples.Count < 2)
+        {
+            return -1;
+        }
+
+        float min = samples.Min(sample => sample.Value);
+        float max = samples.Max(sample => sample.Value);
         float threshold = min + ((max - min) * ((triggerLevel + 1f) / 2f));
         bool preferFirstCrossing = !string.Equals(triggerMode, "Auto", StringComparison.OrdinalIgnoreCase);
 
-        for (int i = 1; i < _oscilloscopeSamples.Count; i++)
+        for (int i = 1; i < samples.Count; i++)
         {
-            float previous = _oscilloscopeSamples[i - 1] ?? 0f;
-            float current = _oscilloscopeSamples[i] ?? 0f;
+            float previous = samples[i - 1].Value;
+            float current = samples[i].Value;
             bool crossed = risingEdge
                 ? previous < threshold && current >= threshold
                 : previous > threshold && current <= threshold;
@@ -1107,10 +1329,10 @@ class SensorLiveMonitorForm : Form
 
         if (preferFirstCrossing)
         {
-            return Math.Min(_oscilloscopeSamples.Count - 1, _oscilloscopeSamples.Count / 4);
+            return Math.Min(samples.Count - 1, samples.Count / 4);
         }
 
-        return 0;
+        return -1;
     }
 
     private void ToggleOscilloscopeRunStop()
@@ -1126,31 +1348,11 @@ class SensorLiveMonitorForm : Form
     private void ResetOscilloscope()
     {
         _oscilloscopeSamples.Clear();
-        Array.Clear(_oscilloscopeRenderedSamples, 0, _oscilloscopeRenderedSamples.Length);
         _hasOscilloscopeSignal = false;
         _oscilloscopeHasRenderedFrame = false;
-        _oscilloscopeLastSourceOffset = 0f;
-        _oscilloscopeLastSourcePeak = 1f;
-        _oscilloscopeLastSourceAverage = 0f;
+        _oscilloscopeAxisUnit = GetSensorUnit(_sensorType);
+        UpdateOscilloscopeMetrics(Array.Empty<OscilloscopeSample>(), null, null, null, null, null, null, null, null, "Coletando amostras...");
         _oscilloscopePanel.Invalidate();
-    }
-
-    private float GetOscilloscopeSample(int index)
-    {
-        if (_oscilloscopeSamples.Count == 0)
-        {
-            return 0f;
-        }
-
-        index = Math.Clamp(index, 0, _oscilloscopeSamples.Count - 1);
-        return _oscilloscopeSamples[index] ?? 0f;
-    }
-
-    private float GetOscilloscopeNoise(int sampleIndex)
-    {
-        _oscilloscopeNoiseSeed = (_oscilloscopeNoiseSeed + 0.37f) % MathF.Tau;
-        float noise = MathF.Sin((_oscilloscopeNoiseSeed + sampleIndex) * 1.7f) * 0.008f;
-        return Math.Abs(_oscilloscopeLastSourcePeak) < 0.01f ? 0f : noise;
     }
 
     private void OscilloscopePanel_Paint(object? sender, PaintEventArgs e)
@@ -1164,62 +1366,337 @@ class SensorLiveMonitorForm : Form
             return;
         }
 
-        using (Pen gridMajor = new(Color.FromArgb(38, 44, 49)))
-        using (Pen gridMinor = new(Color.FromArgb(24, 28, 32)))
+        Rectangle plotBounds = new Rectangle(bounds.Left + 60, bounds.Top + 16, bounds.Width - 76, bounds.Height - 34);
+        if (plotBounds.Width <= 20 || plotBounds.Height <= 20)
         {
-            int columns = 10;
-            int rows = 8;
-            for (int i = 1; i < columns; i++)
-            {
-                int x = bounds.Left + (bounds.Width * i / columns);
-                e.Graphics.DrawLine(i % 5 == 0 ? gridMajor : gridMinor, x, bounds.Top, x, bounds.Bottom);
-            }
-
-            for (int i = 1; i < rows; i++)
-            {
-                int y = bounds.Top + (bounds.Height * i / rows);
-                e.Graphics.DrawLine(i % 4 == 0 ? gridMajor : gridMinor, bounds.Left, y, bounds.Right, y);
-            }
-        }
-
-        using (Pen centerPen = new(Color.FromArgb(58, 78, 89)))
-        {
-            e.Graphics.DrawLine(centerPen, bounds.Left, bounds.Top + bounds.Height / 2, bounds.Right, bounds.Top + bounds.Height / 2);
-        }
-
-        if (!_hasOscilloscopeSignal)
-        {
-            using Font font = new("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point);
-            using Brush brush = new SolidBrush(MutedText);
-            StringFormat format = new() { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            e.Graphics.DrawString("Sem sinal atual para oscilar", font, brush, bounds, format);
             return;
         }
 
-        float[] samples = _oscilloscopeHasRenderedFrame
-            ? _oscilloscopeRenderedSamples
-            : _oscilloscopeSamples.Select(sample => sample ?? 0f).ToArray();
-        PointF[] points = new PointF[samples.Length];
-        float midY = bounds.Top + bounds.Height / 2f;
-        float amplitude = bounds.Height * 0.38f;
-        float step = bounds.Width / (float)(samples.Length - 1);
-        for (int i = 0; i < samples.Length; i++)
+        List<OscilloscopeSample> visibleSamples = GetVisibleOscilloscopeSamples();
+        bool acCoupling = string.Equals(_oscilloscopeCouplingCombo.SelectedItem as string, "AC", StringComparison.OrdinalIgnoreCase);
+        List<float> displaySamples = BuildDisplaySamples(visibleSamples, acCoupling);
+        OscilloscopeWindow window = CalculateOscilloscopeWindow(
+            visibleSamples,
+            (float)_oscilloscopeTimebaseUpDown.Value,
+            (_oscilloscopeTriggerLevelTrackBar.Value - 50f) / 50f,
+            string.Equals(_oscilloscopeTriggerEdgeCombo.SelectedItem as string, "Subida", StringComparison.OrdinalIgnoreCase),
+            _oscilloscopeTriggerModeCombo.SelectedItem as string ?? "Auto");
+
+        OscilloscopeStatistics statistics = CalculateStatistics(visibleSamples, displaySamples);
+        if (displaySamples.Count > 0)
         {
-            float x = bounds.Left + i * step;
-            float y = midY - (samples[i] * amplitude);
+            UpdateOscilloscopeMetrics(
+                visibleSamples,
+                statistics.Current,
+                statistics.Minimum,
+                statistics.Maximum,
+                statistics.Average,
+                statistics.PeakToPeak,
+                statistics.Delta,
+                statistics.RatePerSecond,
+                window,
+                BuildOscilloscopeStatusText(visibleSamples, statistics, acCoupling));
+        }
+
+        float minValue = statistics.Minimum;
+        float maxValue = statistics.Maximum;
+        float range = Math.Abs(maxValue - minValue);
+        float minimumRange = GetMinimumOscilloscopeRange(statistics.Average);
+        if (range < minimumRange)
+        {
+            float center = statistics.Average;
+            float halfRange = minimumRange / 2f;
+            minValue = center - halfRange;
+            maxValue = center + halfRange;
+        }
+
+        if (Math.Abs(maxValue - minValue) < 0.001f)
+        {
+            maxValue = minValue + 1f;
+        }
+
+        using (Brush backgroundBrush = new SolidBrush(Color.FromArgb(8, 10, 12)))
+        using (Pen gridMajor = new(Color.FromArgb(36, 43, 49)))
+        using (Pen gridMinor = new(Color.FromArgb(23, 27, 32)))
+        using (Pen axisPen = new(Color.FromArgb(58, 78, 89)))
+        using (Pen traceGlow = new(Color.FromArgb(75, 0, 220, 140), 5f))
+        using (Pen tracePen = new(Color.FromArgb(0, 220, 140), 2.25f))
+        {
+            e.Graphics.FillRectangle(backgroundBrush, bounds);
+
+            int columns = 10;
+            int rows = 8;
+            for (int i = 0; i <= columns; i++)
+            {
+                int x = plotBounds.Left + (plotBounds.Width * i / columns);
+                e.Graphics.DrawLine(i % 5 == 0 ? gridMajor : gridMinor, x, plotBounds.Top, x, plotBounds.Bottom);
+            }
+
+            for (int i = 0; i <= rows; i++)
+            {
+                int y = plotBounds.Top + (plotBounds.Height * i / rows);
+                e.Graphics.DrawLine(i % 4 == 0 ? gridMajor : gridMinor, plotBounds.Left, y, plotBounds.Right, y);
+            }
+
+            if (statistics.HasData)
+            {
+                int rowsForLabels = 4;
+                using Font axisFont = new("Segoe UI", 8.75f, FontStyle.Regular, GraphicsUnit.Point);
+                using Brush axisBrush = new SolidBrush(Color.FromArgb(185, 191, 196));
+
+                for (int i = 0; i <= rowsForLabels; i++)
+                {
+                    float ratio = i / (float)rowsForLabels;
+                    float value = maxValue - ((maxValue - minValue) * ratio);
+                    int y = plotBounds.Top + (int)Math.Round(plotBounds.Height * ratio);
+                    string label = FormatAxisValue(value, _oscilloscopeAxisUnit);
+                    SizeF textSize = e.Graphics.MeasureString(label, axisFont);
+                    e.Graphics.DrawString(label, axisFont, axisBrush, plotBounds.Left - textSize.Width - 6, y - textSize.Height / 2f);
+                    e.Graphics.DrawLine(i == 2 ? axisPen : gridMinor, plotBounds.Left, y, plotBounds.Right, y);
+                }
+
+                PointF[] points = BuildOscilloscopePoints(displaySamples, visibleSamples, window, plotBounds, minValue, maxValue);
+                if (points.Length == 1)
+                {
+                    using Pen singlePen = new(Color.FromArgb(0, 220, 140), 2.25f);
+                    e.Graphics.DrawLine(singlePen, plotBounds.Left, points[0].Y, plotBounds.Right, points[0].Y);
+                }
+                else if (points.Length >= 2)
+                {
+                    e.Graphics.DrawLines(traceGlow, points);
+                    e.Graphics.DrawLines(tracePen, points);
+                    using Brush fillBrush = new SolidBrush(Color.FromArgb(28, 0, 220, 140));
+                    e.Graphics.FillPolygon(fillBrush, BuildFillPolygon(points, plotBounds));
+                }
+                else
+                {
+                    using Font font = new("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point);
+                    using Brush brush = new SolidBrush(MutedText);
+                    e.Graphics.DrawString("Coletando amostras...", font, brush, plotBounds.Left + 10, plotBounds.Top + 10);
+                }
+            }
+
+            using Font captionFont = new("Segoe UI", 8.75f, FontStyle.Regular, GraphicsUnit.Point);
+            using Brush captionBrush = new SolidBrush(Color.FromArgb(180, 210, 216));
+            e.Graphics.DrawString("Scope virtual baseado em leitura real do sensor", captionFont, captionBrush, plotBounds.Left, bounds.Top + 4);
+            e.Graphics.DrawString(window.Start.ToString("HH:mm:ss", CultureInfo.CurrentCulture), captionFont, captionBrush, plotBounds.Left, plotBounds.Bottom + 2);
+            e.Graphics.DrawString(window.End.ToString("HH:mm:ss", CultureInfo.CurrentCulture), captionFont, captionBrush, plotBounds.Right - 60, plotBounds.Bottom + 2);
+
+            if (!_hasOscilloscopeSignal || visibleSamples.Count < 2)
+            {
+                using Font font = new("Segoe UI", 10, FontStyle.Bold, GraphicsUnit.Point);
+                using Brush brush = new SolidBrush(Color.FromArgb(220, 224, 229));
+                e.Graphics.DrawString("Coletando amostras...", font, brush, plotBounds.Left + 12, plotBounds.Top + 12);
+            }
+        }
+    }
+
+    private static PointF[] BuildOscilloscopePoints(
+        IReadOnlyList<float> displaySamples,
+        IReadOnlyList<OscilloscopeSample> samples,
+        OscilloscopeWindow window,
+        Rectangle plotBounds,
+        float minValue,
+        float maxValue)
+    {
+        if (displaySamples.Count == 0 || samples.Count == 0)
+        {
+            return Array.Empty<PointF>();
+        }
+
+        float valueRange = Math.Max(0.001f, maxValue - minValue);
+        float timeRange = Math.Max(0.001f, (float)window.End.Subtract(window.Start).TotalSeconds);
+        PointF[] points = new PointF[displaySamples.Count];
+
+        for (int i = 0; i < displaySamples.Count; i++)
+        {
+            double seconds = samples[i].Timestamp.Subtract(window.Start).TotalSeconds;
+            float x = plotBounds.Left + (float)Math.Clamp(seconds / timeRange, 0.0, 1.0) * plotBounds.Width;
+            float y = plotBounds.Bottom - 1 - ((displaySamples[i] - minValue) / valueRange * Math.Max(1, plotBounds.Height - 2));
             points[i] = new PointF(x, y);
         }
 
-        using (Pen glow = new(Color.FromArgb(80, 0, 220, 140), 5f))
-        using (Pen trace = new(Color.FromArgb(0, 220, 140), 2f))
+        return points;
+    }
+
+    private static PointF[] BuildFillPolygon(PointF[] points, Rectangle plotBounds)
+    {
+        List<PointF> polygon = new(points.Length + 2);
+        polygon.Add(new PointF(points[0].X, plotBounds.Bottom - 1));
+        polygon.AddRange(points);
+        polygon.Add(new PointF(points[^1].X, plotBounds.Bottom - 1));
+        return polygon.ToArray();
+    }
+
+    private static string FormatAxisValue(float value, string unit)
+    {
+        string formatted = Math.Abs(value) >= 1000f || Math.Abs(value) < 0.01f
+            ? value.ToString("0.###E0", CultureInfo.CurrentCulture)
+            : value.ToString("0.###", CultureInfo.CurrentCulture);
+
+        return string.IsNullOrWhiteSpace(unit) ? formatted : $"{formatted} {unit}";
+    }
+
+    private List<float> BuildDisplaySamples(IReadOnlyList<OscilloscopeSample> samples, bool acCoupling)
+    {
+        List<float> values = samples.Select(sample => sample.Value).ToList();
+
+        if (values.Count == 0)
         {
-            e.Graphics.DrawLines(glow, points);
-            e.Graphics.DrawLines(trace, points);
+            return values;
         }
 
-        using Font captionFont = new("Segoe UI", 9f, FontStyle.Regular, GraphicsUnit.Point);
-        using Brush captionBrush = new SolidBrush(Color.FromArgb(180, 210, 216));
-        e.Graphics.DrawString("Traço baseado na leitura real do sensor", captionFont, captionBrush, 12f, 10f);
+        if (acCoupling)
+        {
+            float average = values.Average();
+            for (int i = 0; i < values.Count; i++)
+            {
+                values[i] -= average;
+            }
+        }
+
+        return values;
+    }
+
+    private static OscilloscopeStatistics CalculateStatistics(
+        IReadOnlyList<OscilloscopeSample> samples,
+        IReadOnlyList<float> values)
+    {
+        if (values.Count == 0)
+        {
+            return new OscilloscopeStatistics(false, 0f, 0f, 0f, 0f, 0f, 0f, 0f);
+        }
+
+        float current = values[^1];
+        float min = values.Min();
+        float max = values.Max();
+        float average = values.Average();
+        float peakToPeak = max - min;
+        float delta = values.Count >= 2 ? values[^1] - values[^2] : 0f;
+        float rate = 0f;
+        if (samples.Count >= 2)
+        {
+            double seconds = Math.Max(0.001, samples[^1].Timestamp.Subtract(samples[^2].Timestamp).TotalSeconds);
+            rate = delta / (float)seconds;
+        }
+
+        return new OscilloscopeStatistics(true, current, min, max, average, peakToPeak, delta, rate);
+    }
+
+    private void UpdateOscilloscopeMetrics(
+        IReadOnlyList<OscilloscopeSample> samples,
+        float? current,
+        float? minimum,
+        float? maximum,
+        float? average,
+        float? peakToPeak,
+        float? delta,
+        float? rate,
+        OscilloscopeWindow? window = null,
+        string? stateText = null)
+    {
+        _oscilloscopeMetricLabels["current"].Text = FormatMetricValue(current);
+        _oscilloscopeMetricLabels["min"].Text = FormatMetricValue(minimum);
+        _oscilloscopeMetricLabels["max"].Text = FormatMetricValue(maximum);
+        _oscilloscopeMetricLabels["average"].Text = FormatMetricValue(average);
+        _oscilloscopeMetricLabels["peak_to_peak"].Text = FormatMetricValue(peakToPeak);
+        _oscilloscopeMetricLabels["delta"].Text = FormatMetricValue(delta);
+        _oscilloscopeMetricLabels["rate"].Text = FormatMetricRate(rate);
+        _oscilloscopeMetricLabels["window"].Text = window.HasValue
+            ? $"{window.Value.Start:HH:mm:ss} - {window.Value.End:HH:mm:ss}"
+            : samples.Count > 0
+                ? $"{samples[0].Timestamp:HH:mm:ss} - {samples[^1].Timestamp:HH:mm:ss}"
+                : "--";
+
+        _oscilloscopeStateLabel.Text = string.IsNullOrWhiteSpace(stateText)
+            ? samples.Count < 2
+                ? "Coletando amostras..."
+                : $"Janela ativa: {samples.Count} amostras"
+            : stateText;
+    }
+
+    private string BuildOscilloscopeStatusText(
+        IReadOnlyList<OscilloscopeSample> samples,
+        OscilloscopeStatistics statistics,
+        bool acCoupling)
+    {
+        if (samples.Count < 2)
+        {
+            return "Coletando amostras...";
+        }
+
+        string coupling = acCoupling ? "AC" : "DC";
+        string rawText = FormatMetricValue(samples[^1].Value);
+        string displayText = FormatMetricValue(statistics.Current);
+        return $"Bruto: {rawText} | Exibido: {displayText} | Modo: {coupling} | Janela ativa: {samples.Count} amostras";
+    }
+
+    private string FormatMetricValue(float? value)
+    {
+        if (!value.HasValue)
+        {
+            return "--";
+        }
+
+        string formatted = value.Value.ToString("0.###", CultureInfo.CurrentCulture);
+        return string.IsNullOrWhiteSpace(_oscilloscopeAxisUnit)
+            ? formatted
+            : $"{formatted} {_oscilloscopeAxisUnit}";
+    }
+
+    private static string FormatMetricRate(float? value)
+    {
+        return value.HasValue
+            ? $"{value.Value:0.###} /s"
+            : "--";
+    }
+
+    private float GetMinimumOscilloscopeRange(float center)
+    {
+        float baseRange = _sensorType switch
+        {
+            "Temperature" => 1.5f,
+            "Load" => 8f,
+            "Voltage" => 0.2f,
+            "Clock" => 15f,
+            "Fan" => 80f,
+            "Power" => 2f,
+            "Frequency" => 5f,
+            "Current" => 0.2f,
+            _ => 1f
+        };
+
+        float magnitudeRange = Math.Abs(center) * 0.08f;
+
+        return Math.Max(baseRange, magnitudeRange);
+    }
+
+    private static string GetSensorUnit(string sensorType)
+    {
+        return sensorType switch
+        {
+            "Voltage" => "V",
+            "Current" => "A",
+            "Power" => "W",
+            "Clock" => "MHz",
+            "Temperature" => "°C",
+            "Load" => "%",
+            "Frequency" => "Hz",
+            "Fan" => "RPM",
+            "Flow" => "L/h",
+            "Control" => "%",
+            "Level" => "%",
+            "Data" => "GB",
+            "SmallData" => "MB",
+            "Throughput" => "MB/s",
+            "TimeSpan" => "s",
+            "Timing" => "ns",
+            "Energy" => "mWh",
+            "Noise" => "dBA",
+            "Conductivity" => "uS/cm",
+            "Humidity" => "%",
+            _ => ""
+        };
     }
 
     private static string FormatRawValue(float? value)
@@ -1418,6 +1895,20 @@ class SensorLiveMonitorForm : Form
         long rounded = (long)Math.Round(value.Value);
         return Convert.ToString(rounded, 2);
     }
+
+    private readonly record struct OscilloscopeWindow(DateTime Start, DateTime End);
+
+    private sealed record OscilloscopeStatistics(
+        bool HasData,
+        float Current,
+        float Minimum,
+        float Maximum,
+        float Average,
+        float PeakToPeak,
+        float Delta,
+        float RatePerSecond);
+
+    private sealed record OscilloscopeSample(DateTime Timestamp, float Value);
 
     private sealed class OscilloscopePanel : Panel
     {

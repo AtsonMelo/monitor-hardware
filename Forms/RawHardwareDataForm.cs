@@ -28,16 +28,23 @@ class RawHardwareDataForm : Form
     private DateTime? _lastUpdatedAt;
     private bool _isFilteringByHardware;
 
-    public RawHardwareDataForm(HardwareMonitorService hardwareMonitor, HardwareSelectionService hardwareSelectionService, Icon? windowIcon = null)
+    public RawHardwareDataForm(
+        HardwareMonitorService hardwareMonitor,
+        HardwareSelectionService hardwareSelectionService,
+        Icon? windowIcon = null,
+        string windowTitle = "Selecionar sensor")
     {
         _hardwareMonitor = hardwareMonitor ?? throw new ArgumentNullException(nameof(hardwareMonitor));
         _hardwareSelectionService = hardwareSelectionService ?? throw new ArgumentNullException(nameof(hardwareSelectionService));
 
-        Text = "Dados brutos do hardware";
+        bool scopeSelectionMode = !string.IsNullOrWhiteSpace(windowTitle) &&
+                                  windowTitle.Contains("Scope", StringComparison.OrdinalIgnoreCase);
+
+        Text = string.IsNullOrWhiteSpace(windowTitle) ? "Selecionar sensor" : windowTitle;
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterParent;
-        MinimumSize = new Size(1020, 620);
-        Size = new Size(1280, 760);
+        MinimumSize = new Size(1000, 660);
+        Size = new Size(1280, 780);
         BackColor = WindowBackground;
         ForeColor = MainText;
         Font = new Font("Segoe UI", 10, FontStyle.Regular, GraphicsUnit.Point);
@@ -80,19 +87,23 @@ class RawHardwareDataForm : Form
 
         Label titleLabel = new Label
         {
-            Text = "Dados brutos do hardware",
+            Text = Text,
             Dock = DockStyle.Fill,
             ForeColor = MainText,
             Font = new Font("Segoe UI", 15, FontStyle.Bold, GraphicsUnit.Point),
             TextAlign = ContentAlignment.MiddleLeft,
-            AutoEllipsis = true
+            AutoEllipsis = true,
+            MinimumSize = new Size(0, 42)
         };
 
         _refreshButton = new Button { Text = "Atualizar" };
         ConfigureActionButton(_refreshButton);
         _refreshButton.Click += (_, _) => RefreshData();
 
-        _monitorSensorButton = new Button { Text = "Monitorar sensor" };
+        _monitorSensorButton = new Button
+        {
+            Text = scopeSelectionMode ? "Abrir no Scope" : "Monitorar sensor"
+        };
         ConfigureActionButton(_monitorSensorButton);
         _monitorSensorButton.Click += (_, _) => OpenSelectedSensorMonitor();
 
@@ -117,6 +128,13 @@ class RawHardwareDataForm : Form
             ColumnHeadersDefaultCellStyle = BuildHeaderStyle(),
             DefaultCellStyle = BuildCellStyle(),
             AlternatingRowsDefaultCellStyle = BuildAlternatingStyle()
+        };
+        _grid.CellDoubleClick += (_, e) =>
+        {
+            if (e.RowIndex >= 0)
+            {
+                OpenSelectedSensorMonitor();
+            }
         };
 
         _grid.Columns.Add(CreateTextColumn("Hardware", nameof(RawHardwareRow.Hardware)));
@@ -149,9 +167,10 @@ class RawHardwareDataForm : Form
         FlowLayoutPanel buttons = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.RightToLeft,
-            WrapContents = false,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = true,
             AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             BackColor = WindowBackground,
             Margin = new Padding(0, 0, 0, 12)
         };
@@ -160,8 +179,8 @@ class RawHardwareDataForm : Form
         ConfigureActionButton(_closeButton);
         _closeButton.Click += (_, _) => Close();
 
-        buttons.Controls.Add(_closeButton);
         buttons.Controls.Add(_monitorSensorButton);
+        buttons.Controls.Add(_closeButton);
 
         root.Controls.Add(header, 0, 0);
         root.Controls.Add(buttons, 0, 1);
@@ -284,13 +303,13 @@ class RawHardwareDataForm : Form
         }
         catch (Exception ex)
         {
-            AppLogService.Error(ex, "Não foi possível carregar os dados brutos do hardware.");
+            AppLogService.Error(ex, "Não foi possível carregar a lista de sensores.");
             _grid.DataSource = new BindingList<RawHardwareRow>(new List<RawHardwareRow>());
             _lastUpdatedAt = null;
             UpdateFooter(0);
             MessageBox.Show(
-                $"Não foi possível carregar os dados brutos do hardware: {ex.Message}",
-                "Dados brutos do hardware",
+                $"Não foi possível carregar a lista de sensores: {ex.Message}",
+                Text,
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -307,7 +326,7 @@ class RawHardwareDataForm : Form
         {
             MessageBox.Show(
                 "Selecione uma linha para monitorar o sensor.",
-                "Dados brutos do hardware",
+                Text,
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
             return;
@@ -324,7 +343,9 @@ class RawHardwareDataForm : Form
             _ownedIcon,
             openOscilloscopeTab: true);
 
-        sensorMonitorForm.Show(this);
+        sensorMonitorForm.Show();
+        sensorMonitorForm.Activate();
+        Close();
     }
 
     private void UpdateFooter(int totalSensors)
