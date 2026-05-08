@@ -1185,9 +1185,16 @@ class HardwareDashboardForm : Form
 
 class MetricCard : Panel
 {
+    private static readonly Color CardBackground = Color.FromArgb(27, 31, 36);
+    private static readonly Color CardBorder = Color.FromArgb(52, 60, 69);
+    private static readonly Color CardAccent = Color.FromArgb(78, 140, 255);
+    private static readonly Color TitleColor = Color.FromArgb(220, 224, 229);
+    private static readonly Color SecondaryColor = Color.FromArgb(177, 185, 194);
+
     private readonly Label _titleLabel;
     private readonly Label _primaryLabel;
     private readonly Label _secondaryLabel;
+    private readonly Panel _contentPanel;
     private string _secondaryText = "Aguardando leitura";
     private bool _isCompactLayout;
 
@@ -1195,46 +1202,62 @@ class MetricCard : Panel
     {
         Dock = DockStyle.Fill;
         Margin = new Padding(8);
-        Padding = new Padding(22, 20, 22, 20);
+        Padding = new Padding(20, 18, 20, 18);
         MinimumSize = new Size(0, 190);
-        BackColor = Color.FromArgb(28, 31, 35);
+        BackColor = CardBackground;
+        DoubleBuffered = true;
+
+        _contentPanel = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = Color.Transparent,
+            Padding = new Padding(0),
+            Margin = new Padding(0)
+        };
 
         _titleLabel = new Label
         {
             Text = title,
             Dock = DockStyle.Top,
-            Height = 38,
-            ForeColor = Color.FromArgb(210, 214, 220),
-            Font = new Font("Segoe UI", 11, FontStyle.Bold, GraphicsUnit.Point),
+            Height = 26,
+            ForeColor = TitleColor,
+            Font = new Font("Segoe UI", 10.5f, FontStyle.Bold, GraphicsUnit.Point),
             TextAlign = ContentAlignment.MiddleLeft,
-            AutoEllipsis = true
+            AutoEllipsis = true,
+            Margin = new Padding(0)
         };
 
         _primaryLabel = new Label
         {
             Text = "--",
             Dock = DockStyle.Top,
-            Height = 82,
-            ForeColor = SystemColors.Highlight,
-            Font = new Font("Segoe UI", 28, FontStyle.Bold, GraphicsUnit.Point),
+            Height = 72,
+            ForeColor = CardAccent,
+            Font = new Font("Segoe UI", 27, FontStyle.Bold, GraphicsUnit.Point),
             TextAlign = ContentAlignment.MiddleLeft,
-            AutoEllipsis = true
+            AutoEllipsis = true,
+            Margin = new Padding(0)
         };
 
         _secondaryLabel = new Label
         {
             Text = "Aguardando leitura",
-            Dock = DockStyle.Fill,
+            Dock = DockStyle.Top,
             AutoEllipsis = false,
             TextAlign = ContentAlignment.TopLeft,
-            ForeColor = Color.FromArgb(190, 196, 205),
-            Font = new Font("Segoe UI", 10.5f, FontStyle.Regular, GraphicsUnit.Point),
-            UseMnemonic = false
+            ForeColor = SecondaryColor,
+            Font = new Font("Segoe UI", 10f, FontStyle.Regular, GraphicsUnit.Point),
+            UseMnemonic = false,
+            Margin = new Padding(0),
+            AutoSize = true
         };
 
-        Controls.Add(_secondaryLabel);
-        Controls.Add(_primaryLabel);
-        Controls.Add(_titleLabel);
+        _contentPanel.Controls.Add(_secondaryLabel);
+        _contentPanel.Controls.Add(_primaryLabel);
+        _contentPanel.Controls.Add(_titleLabel);
+        Controls.Add(_contentPanel);
+        SizeChanged += (_, _) => UpdateSecondaryLabel();
+        Paint += MetricCardPaint;
     }
 
     public void SetValues(string primary, string secondary, Color accent)
@@ -1260,23 +1283,23 @@ class MetricCard : Panel
 
         if (isCompact)
         {
-            Padding = new Padding(14, 10, 14, 10);
-            MinimumSize = new Size(0, 118);
-            _titleLabel.Height = 22;
-            _primaryLabel.Height = 40;
-            _titleLabel.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold, GraphicsUnit.Point);
-            _primaryLabel.Font = new Font("Segoe UI", 20, FontStyle.Bold, GraphicsUnit.Point);
-            _secondaryLabel.Font = new Font("Segoe UI", 9, FontStyle.Regular, GraphicsUnit.Point);
+            Padding = new Padding(14, 12, 14, 12);
+            MinimumSize = new Size(0, 126);
+            _titleLabel.Height = 20;
+            _primaryLabel.Height = 38;
+            _titleLabel.Font = new Font("Segoe UI", 9.25f, FontStyle.Bold, GraphicsUnit.Point);
+            _primaryLabel.Font = new Font("Segoe UI", 19, FontStyle.Bold, GraphicsUnit.Point);
+            _secondaryLabel.Font = new Font("Segoe UI", 8.75f, FontStyle.Regular, GraphicsUnit.Point);
         }
         else
         {
-            Padding = new Padding(22, 20, 22, 20);
+            Padding = new Padding(20, 18, 20, 18);
             MinimumSize = new Size(0, 190);
-            _titleLabel.Height = 38;
-            _primaryLabel.Height = 82;
-            _titleLabel.Font = new Font("Segoe UI", 11, FontStyle.Bold, GraphicsUnit.Point);
-            _primaryLabel.Font = new Font("Segoe UI", 28, FontStyle.Bold, GraphicsUnit.Point);
-            _secondaryLabel.Font = new Font("Segoe UI", 10.5f, FontStyle.Regular, GraphicsUnit.Point);
+            _titleLabel.Height = 26;
+            _primaryLabel.Height = 72;
+            _titleLabel.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold, GraphicsUnit.Point);
+            _primaryLabel.Font = new Font("Segoe UI", 27, FontStyle.Bold, GraphicsUnit.Point);
+            _secondaryLabel.Font = new Font("Segoe UI", 10f, FontStyle.Regular, GraphicsUnit.Point);
         }
 
         UpdateSecondaryLabel();
@@ -1285,6 +1308,10 @@ class MetricCard : Panel
     private void UpdateSecondaryLabel()
     {
         _secondaryLabel.Text = FormatSecondaryText(_secondaryText, stackLines: !_isCompactLayout);
+        int availableWidth = Math.Max(0, ClientSize.Width - Padding.Horizontal);
+        _secondaryLabel.MaximumSize = availableWidth > 0
+            ? new Size(availableWidth, 0)
+            : Size.Empty;
     }
 
     private static string FormatSecondaryText(string text, bool stackLines)
@@ -1297,5 +1324,18 @@ class MetricCard : Panel
         return stackLines
             ? text.Replace(" | ", Environment.NewLine)
             : text;
+    }
+
+    private void MetricCardPaint(object? sender, PaintEventArgs e)
+    {
+        Rectangle bounds = ClientRectangle;
+        bounds.Width -= 1;
+        bounds.Height -= 1;
+
+        using Pen borderPen = new Pen(CardBorder);
+        using Pen accentPen = new Pen(CardAccent, 2f);
+
+        e.Graphics.DrawRectangle(borderPen, bounds);
+        e.Graphics.DrawLine(accentPen, bounds.Left + 10, bounds.Top + 1, bounds.Right - 10, bounds.Top + 1);
     }
 }
