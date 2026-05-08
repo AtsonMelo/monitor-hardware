@@ -100,7 +100,9 @@ class SensorOriginsForm : Form
             AllowUserToResizeRows = false,
             MultiSelect = false,
             SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells,
+            AutoGenerateColumns = false,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            ScrollBars = ScrollBars.Vertical,
             BackgroundColor = GridBackground,
             BorderStyle = BorderStyle.FixedSingle,
             GridColor = Color.FromArgb(52, 58, 64),
@@ -157,6 +159,12 @@ class SensorOriginsForm : Form
         Shown += (_, _) => RefreshOrigins();
     }
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        WindowThemeService.ApplyNativeTitleBarTheme(Handle);
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
@@ -189,28 +197,28 @@ class SensorOriginsForm : Form
     private void ConfigureGridColumns()
     {
         _grid.Columns.Clear();
-        _grid.Columns.Add(CreateTextColumn("Tipo", nameof(SensorOriginInfo.HardwareType), 120));
-        _grid.Columns.Add(CreateTextColumn("Nome", nameof(SensorOriginInfo.Name), 190));
-        _grid.Columns.Add(CreateTextColumn("Modelo", nameof(SensorOriginInfo.Model), 160));
-        _grid.Columns.Add(CreateTextColumn("Fabricante", nameof(SensorOriginInfo.Manufacturer), 160));
-        _grid.Columns.Add(CreateTextColumn("Driver Provider", nameof(SensorOriginInfo.DriverProvider), 150));
-        _grid.Columns.Add(CreateTextColumn("Driver Version", nameof(SensorOriginInfo.DriverVersion), 130));
-        _grid.Columns.Add(CreateTextColumn("Driver Date", nameof(SensorOriginInfo.DriverDate), 120));
-        _grid.Columns.Add(CreateTextColumn("Firmware", nameof(SensorOriginInfo.FirmwareVersion), 120));
-        _grid.Columns.Add(CreateTextColumn("PNPDeviceID", nameof(SensorOriginInfo.PnpDeviceId), 220));
-        _grid.Columns.Add(CreateTextColumn("Fonte provável", nameof(SensorOriginInfo.ProbableSensorSource), 220));
-        _grid.Columns.Add(CreateTextColumn("Classe Windows", nameof(SensorOriginInfo.WindowsClassSource), 160));
+        _grid.Columns.Add(CreateTextColumn("Tipo", nameof(SensorOriginInfo.HardwareType), 90));
+        _grid.Columns.Add(CreateTextColumn("Nome", nameof(SensorOriginInfo.Name), 150));
+        _grid.Columns.Add(CreateTextColumn("Modelo", nameof(SensorOriginInfo.Model), 125));
+        _grid.Columns.Add(CreateTextColumn("Fabricante", nameof(SensorOriginInfo.Manufacturer), 120));
+        _grid.Columns.Add(CreateTextColumn("Driver", nameof(SensorOriginInfo.DriverProvider), 100));
+        _grid.Columns.Add(CreateTextColumn("Versão do driver", nameof(SensorOriginInfo.DriverVersion), 110));
+        _grid.Columns.Add(CreateTextColumn("Data do driver", nameof(SensorOriginInfo.DriverDate), 115));
+        _grid.Columns.Add(CreateTextColumn("Firmware", nameof(SensorOriginInfo.FirmwareVersion), 100));
+        _grid.Columns.Add(CreateTextColumn("PNP Device ID", nameof(SensorOriginInfo.PnpDeviceId), 180));
+        _grid.Columns.Add(CreateTextColumn("Fonte", nameof(SensorOriginInfo.ProbableSensorSource), 160));
     }
 
-    private static DataGridViewTextBoxColumn CreateTextColumn(string headerText, string propertyName, int minWidth)
+    private static DataGridViewTextBoxColumn CreateTextColumn(string headerText, string propertyName, int fillWeight)
     {
         return new DataGridViewTextBoxColumn
         {
             HeaderText = headerText,
             DataPropertyName = propertyName,
             SortMode = DataGridViewColumnSortMode.NotSortable,
-            MinimumWidth = minWidth,
-            AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells,
+            AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+            FillWeight = fillWeight,
+            MinimumWidth = 60,
             DefaultCellStyle = new DataGridViewCellStyle
             {
                 BackColor = GridBackground,

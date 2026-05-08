@@ -208,6 +208,12 @@ class SensorsDetailsForm : Form
         Shown += (_, _) => RefreshSensors();
     }
 
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        WindowThemeService.ApplyNativeTitleBarTheme(Handle);
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
