@@ -321,7 +321,8 @@ class RawHardwareDataForm : Form
             row.SensorName,
             row.SensorType,
             row.SensorIdentifier,
-            _ownedIcon);
+            _ownedIcon,
+            openOscilloscopeTab: true);
 
         sensorMonitorForm.Show(this);
     }

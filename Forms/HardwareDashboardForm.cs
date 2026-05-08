@@ -30,8 +30,10 @@ class HardwareDashboardForm : Form
     private Button _updateButton = null!;
     private Button _sensorsButton = null!;
     private Button _rawHardwareDataButton = null!;
+    private Button _scopeButton = null!;
     private Button _hardwareSelectionButton = null!;
     private Button _sensorOriginsButton = null!;
+    private Button _diagnosticAiButton = null!;
     private Button _errorReportButton = null!;
     private Button _helpButton = null!;
     private CheckBox _startupCheckBox = null!;
@@ -54,6 +56,7 @@ class HardwareDashboardForm : Form
     private RawHardwareDataForm? _rawHardwareDataForm;
     private HardwareSelectionForm? _hardwareSelectionForm;
     private SensorOriginsForm? _sensorOriginsForm;
+    private DiagnosticAiForm? _diagnosticAiForm;
     private DateTime? _lastUpdatedAt;
     private bool _headerIsStacked;
     private bool _cardsAreStacked;
@@ -120,6 +123,7 @@ class HardwareDashboardForm : Form
             _helpMenu.Dispose();
             _headerToolTip.Dispose();
             _rawHardwareDataForm?.Dispose();
+            _diagnosticAiForm?.Dispose();
             _hardwareMonitor.Dispose();
             _windowIcon.Dispose();
         };
@@ -317,6 +321,13 @@ class HardwareDashboardForm : Form
         ConfigureActionButton(_rawHardwareDataButton);
         _rawHardwareDataButton.Click += (_, _) => OpenRawHardwareData();
 
+        _scopeButton = new Button
+        {
+            Text = "Osciloscópio"
+        };
+        ConfigureActionButton(_scopeButton);
+        _scopeButton.Click += (_, _) => OpenScopeSelection();
+
         _hardwareSelectionButton = new Button
         {
             Text = "Selecionar hardwares"
@@ -330,6 +341,13 @@ class HardwareDashboardForm : Form
         };
         ConfigureActionButton(_sensorOriginsButton);
         _sensorOriginsButton.Click += (_, _) => OpenSensorOrigins();
+
+        _diagnosticAiButton = new Button
+        {
+            Text = "Diagnóstico por IA"
+        };
+        ConfigureActionButton(_diagnosticAiButton);
+        _diagnosticAiButton.Click += (_, _) => OpenDiagnosticAi();
 
         _errorReportButton = new Button
         {
@@ -534,7 +552,7 @@ class HardwareDashboardForm : Form
         if (useTwoColumns)
         {
             _actionsLayout.ColumnCount = 2;
-            _actionsLayout.RowCount = 5;
+            _actionsLayout.RowCount = 4;
             _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
@@ -546,18 +564,20 @@ class HardwareDashboardForm : Form
             AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 8, 8));
             AddActionControl(_sensorsButton, 1, 0, new Padding(8, 0, 0, 8));
             AddActionControl(_rawHardwareDataButton, 0, 1, new Padding(0, 0, 8, 8));
-            AddActionControl(_hardwareSelectionButton, 1, 1, new Padding(8, 0, 0, 8));
-            AddActionControl(_sensorOriginsButton, 0, 2, new Padding(0, 0, 8, 8));
-            AddActionControl(_errorReportButton, 1, 2, new Padding(8, 0, 0, 8));
-            AddActionControl(_startupCheckBox, 0, 3, new Padding(0, 2, 0, 0), columnSpan: 2);
+            AddActionControl(_scopeButton, 1, 1, new Padding(8, 0, 0, 8));
+            AddActionControl(_hardwareSelectionButton, 0, 2, new Padding(0, 0, 8, 8));
+            AddActionControl(_sensorOriginsButton, 1, 2, new Padding(8, 0, 0, 8));
+            AddActionControl(_diagnosticAiButton, 0, 3, new Padding(0, 0, 8, 8));
+            AddActionControl(_errorReportButton, 1, 3, new Padding(8, 0, 0, 8));
+            AddActionControl(_startupCheckBox, 0, 4, new Padding(0, 2, 0, 0), 2);
         }
         else
         {
             _actionsLayout.ColumnCount = 1;
-            _actionsLayout.RowCount = 7;
+            _actionsLayout.RowCount = 9;
             _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            for (int index = 0; index < 7; index++)
+            for (int index = 0; index < 9; index++)
             {
                 _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             }
@@ -565,10 +585,12 @@ class HardwareDashboardForm : Form
             AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 0, 8));
             AddActionControl(_sensorsButton, 0, 1, new Padding(0, 0, 0, 8));
             AddActionControl(_rawHardwareDataButton, 0, 2, new Padding(0, 0, 0, 8));
-            AddActionControl(_hardwareSelectionButton, 0, 3, new Padding(0, 0, 0, 8));
-            AddActionControl(_sensorOriginsButton, 0, 4, new Padding(0, 0, 0, 8));
-            AddActionControl(_errorReportButton, 0, 5, new Padding(0, 0, 0, 8));
-            AddActionControl(_startupCheckBox, 0, 6, new Padding(0));
+            AddActionControl(_scopeButton, 0, 3, new Padding(0, 0, 0, 8));
+            AddActionControl(_hardwareSelectionButton, 0, 4, new Padding(0, 0, 0, 8));
+            AddActionControl(_sensorOriginsButton, 0, 5, new Padding(0, 0, 0, 8));
+            AddActionControl(_diagnosticAiButton, 0, 6, new Padding(0, 0, 0, 8));
+            AddActionControl(_errorReportButton, 0, 7, new Padding(0, 0, 0, 8));
+            AddActionControl(_startupCheckBox, 0, 8, new Padding(0));
         }
 
         _actionsLayout.ResumeLayout(true);
@@ -646,6 +668,25 @@ class HardwareDashboardForm : Form
         }
     }
 
+    private void OpenScopeSelection()
+    {
+        try
+        {
+            RawHardwareDataForm scopeSelectionForm = new RawHardwareDataForm(_hardwareMonitor, _hardwareSelectionService, _windowIcon);
+            scopeSelectionForm.Show(this);
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível abrir a tela do osciloscópio.");
+
+            MessageBox.Show(
+                $"Não foi possível abrir a tela do osciloscópio: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+    }
+
     private void OpenHardwareSelection()
     {
         try
@@ -704,6 +745,42 @@ class HardwareDashboardForm : Form
 
             MessageBox.Show(
                 $"Não foi possível abrir a tela de origem dos sensores: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+    }
+
+    private void OpenDiagnosticAi()
+    {
+        try
+        {
+            List<SensorReading> sensors = _hardwareMonitor.ReadAllSensors();
+
+            if (_diagnosticAiForm is { IsDisposed: false })
+            {
+                _diagnosticAiForm.RefreshSensors(sensors);
+
+                if (_diagnosticAiForm.WindowState == FormWindowState.Minimized)
+                {
+                    _diagnosticAiForm.WindowState = FormWindowState.Normal;
+                }
+
+                _diagnosticAiForm.Show();
+                _diagnosticAiForm.Activate();
+                return;
+            }
+
+            _diagnosticAiForm = new DiagnosticAiForm(sensors, _windowIcon);
+            _diagnosticAiForm.FormClosed += (_, _) => _diagnosticAiForm = null;
+            _diagnosticAiForm.Show(this);
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível abrir o diagnóstico por IA.");
+
+            MessageBox.Show(
+                $"Não foi possível abrir o diagnóstico por IA: {ex.Message}",
                 "Monitor Hardware",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
