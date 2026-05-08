@@ -28,6 +28,7 @@ class HardwareDashboardForm : Form
     private Label _titleLabel = null!;
     private Button _updateButton = null!;
     private Button _sensorsButton = null!;
+    private Button _hardwareSelectionButton = null!;
     private Button _sensorOriginsButton = null!;
     private Button _errorReportButton = null!;
     private Button _helpButton = null!;
@@ -48,6 +49,7 @@ class HardwareDashboardForm : Form
     private readonly ShortTrendHistory _ssdTrendHistory = new ShortTrendHistory();
     private HardwareMonitorService? _hardwareMonitor;
     private SensorsDetailsForm? _sensorsDetailsForm;
+    private HardwareSelectionForm? _hardwareSelectionForm;
     private SensorOriginsForm? _sensorOriginsForm;
     private DateTime? _lastUpdatedAt;
     private bool _headerIsStacked;
@@ -300,6 +302,13 @@ class HardwareDashboardForm : Form
         ConfigureActionButton(_sensorsButton);
         _sensorsButton.Click += (_, _) => OpenSensorsDetails();
 
+        _hardwareSelectionButton = new Button
+        {
+            Text = "Selecionar hardwares"
+        };
+        ConfigureActionButton(_hardwareSelectionButton);
+        _hardwareSelectionButton.Click += (_, _) => OpenHardwareSelection();
+
         _sensorOriginsButton = new Button
         {
             Text = "Origem dos sensores"
@@ -510,35 +519,38 @@ class HardwareDashboardForm : Form
         if (useTwoColumns)
         {
             _actionsLayout.ColumnCount = 2;
-            _actionsLayout.RowCount = 3;
+            _actionsLayout.RowCount = 4;
             _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
 
             AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 8, 8));
             AddActionControl(_sensorsButton, 1, 0, new Padding(8, 0, 0, 8));
-            AddActionControl(_sensorOriginsButton, 0, 1, new Padding(0, 0, 8, 8));
-            AddActionControl(_errorReportButton, 1, 1, new Padding(8, 0, 0, 8));
-            AddActionControl(_startupCheckBox, 0, 2, new Padding(0, 2, 0, 0), columnSpan: 2);
+            AddActionControl(_hardwareSelectionButton, 0, 1, new Padding(0, 0, 8, 8));
+            AddActionControl(_sensorOriginsButton, 1, 1, new Padding(8, 0, 0, 8));
+            AddActionControl(_errorReportButton, 0, 2, new Padding(0, 0, 8, 8));
+            AddActionControl(_startupCheckBox, 0, 3, new Padding(0, 2, 0, 0), columnSpan: 2);
         }
         else
         {
             _actionsLayout.ColumnCount = 1;
-            _actionsLayout.RowCount = 5;
+            _actionsLayout.RowCount = 6;
             _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            for (int index = 0; index < 5; index++)
+            for (int index = 0; index < 6; index++)
             {
                 _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             }
 
             AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 0, 8));
             AddActionControl(_sensorsButton, 0, 1, new Padding(0, 0, 0, 8));
-            AddActionControl(_sensorOriginsButton, 0, 2, new Padding(0, 0, 0, 8));
-            AddActionControl(_errorReportButton, 0, 3, new Padding(0, 0, 0, 8));
-            AddActionControl(_startupCheckBox, 0, 4, new Padding(0));
+            AddActionControl(_hardwareSelectionButton, 0, 2, new Padding(0, 0, 0, 8));
+            AddActionControl(_sensorOriginsButton, 0, 3, new Padding(0, 0, 0, 8));
+            AddActionControl(_errorReportButton, 0, 4, new Padding(0, 0, 0, 8));
+            AddActionControl(_startupCheckBox, 0, 5, new Padding(0));
         }
 
         _actionsLayout.ResumeLayout(true);
@@ -580,6 +592,40 @@ class HardwareDashboardForm : Form
 
             MessageBox.Show(
                 $"Não foi possível abrir a tela de sensores: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+    }
+
+    private void OpenHardwareSelection()
+    {
+        try
+        {
+            _hardwareMonitor ??= new HardwareMonitorService();
+
+            if (_hardwareSelectionForm is { IsDisposed: false })
+            {
+                if (_hardwareSelectionForm.WindowState == FormWindowState.Minimized)
+                {
+                    _hardwareSelectionForm.WindowState = FormWindowState.Normal;
+                }
+
+                _hardwareSelectionForm.Show();
+                _hardwareSelectionForm.Activate();
+                return;
+            }
+
+            _hardwareSelectionForm = new HardwareSelectionForm(_hardwareMonitor, _windowIcon);
+            _hardwareSelectionForm.FormClosed += (_, _) => _hardwareSelectionForm = null;
+            _hardwareSelectionForm.Show(this);
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível abrir a tela de seleção de hardwares.");
+
+            MessageBox.Show(
+                $"Não foi possível abrir a tela de seleção de hardwares: {ex.Message}",
                 "Monitor Hardware",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
