@@ -29,6 +29,7 @@ class HardwareDashboardForm : Form
     private Label _titleLabel = null!;
     private Button _updateButton = null!;
     private Button _sensorsButton = null!;
+    private Button _rawHardwareDataButton = null!;
     private Button _hardwareSelectionButton = null!;
     private Button _sensorOriginsButton = null!;
     private Button _errorReportButton = null!;
@@ -50,6 +51,7 @@ class HardwareDashboardForm : Form
     private readonly ShortTrendHistory _ssdTrendHistory = new ShortTrendHistory();
     private readonly HardwareMonitorService _hardwareMonitor;
     private SensorsDetailsForm? _sensorsDetailsForm;
+    private RawHardwareDataForm? _rawHardwareDataForm;
     private HardwareSelectionForm? _hardwareSelectionForm;
     private SensorOriginsForm? _sensorOriginsForm;
     private DateTime? _lastUpdatedAt;
@@ -74,6 +76,7 @@ class HardwareDashboardForm : Form
         AutoScaleMode = AutoScaleMode.Dpi;
         _windowIcon = AppIconService.Load();
         Icon = _windowIcon;
+        _rawHardwareDataForm = new RawHardwareDataForm(_hardwareMonitor, _hardwareSelectionService, _windowIcon);
         ShowInTaskbar = true;
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(MinimumWindowWidth, MinimumWindowHeight);
@@ -116,6 +119,7 @@ class HardwareDashboardForm : Form
             _timer.Dispose();
             _helpMenu.Dispose();
             _headerToolTip.Dispose();
+            _rawHardwareDataForm?.Dispose();
             _hardwareMonitor.Dispose();
             _windowIcon.Dispose();
         };
@@ -305,6 +309,13 @@ class HardwareDashboardForm : Form
         };
         ConfigureActionButton(_sensorsButton);
         _sensorsButton.Click += (_, _) => OpenSensorsDetails();
+
+        _rawHardwareDataButton = new Button
+        {
+            Text = "Dados brutos"
+        };
+        ConfigureActionButton(_rawHardwareDataButton);
+        _rawHardwareDataButton.Click += (_, _) => OpenRawHardwareData();
 
         _hardwareSelectionButton = new Button
         {
@@ -523,9 +534,10 @@ class HardwareDashboardForm : Form
         if (useTwoColumns)
         {
             _actionsLayout.ColumnCount = 2;
-            _actionsLayout.RowCount = 4;
+            _actionsLayout.RowCount = 5;
             _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
@@ -533,28 +545,30 @@ class HardwareDashboardForm : Form
 
             AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 8, 8));
             AddActionControl(_sensorsButton, 1, 0, new Padding(8, 0, 0, 8));
-            AddActionControl(_hardwareSelectionButton, 0, 1, new Padding(0, 0, 8, 8));
-            AddActionControl(_sensorOriginsButton, 1, 1, new Padding(8, 0, 0, 8));
-            AddActionControl(_errorReportButton, 0, 2, new Padding(0, 0, 8, 8));
+            AddActionControl(_rawHardwareDataButton, 0, 1, new Padding(0, 0, 8, 8));
+            AddActionControl(_hardwareSelectionButton, 1, 1, new Padding(8, 0, 0, 8));
+            AddActionControl(_sensorOriginsButton, 0, 2, new Padding(0, 0, 8, 8));
+            AddActionControl(_errorReportButton, 1, 2, new Padding(8, 0, 0, 8));
             AddActionControl(_startupCheckBox, 0, 3, new Padding(0, 2, 0, 0), columnSpan: 2);
         }
         else
         {
             _actionsLayout.ColumnCount = 1;
-            _actionsLayout.RowCount = 6;
+            _actionsLayout.RowCount = 7;
             _actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            for (int index = 0; index < 6; index++)
+            for (int index = 0; index < 7; index++)
             {
                 _actionsLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             }
 
             AddActionControl(_updateButton, 0, 0, new Padding(0, 0, 0, 8));
             AddActionControl(_sensorsButton, 0, 1, new Padding(0, 0, 0, 8));
-            AddActionControl(_hardwareSelectionButton, 0, 2, new Padding(0, 0, 0, 8));
-            AddActionControl(_sensorOriginsButton, 0, 3, new Padding(0, 0, 0, 8));
-            AddActionControl(_errorReportButton, 0, 4, new Padding(0, 0, 0, 8));
-            AddActionControl(_startupCheckBox, 0, 5, new Padding(0));
+            AddActionControl(_rawHardwareDataButton, 0, 2, new Padding(0, 0, 0, 8));
+            AddActionControl(_hardwareSelectionButton, 0, 3, new Padding(0, 0, 0, 8));
+            AddActionControl(_sensorOriginsButton, 0, 4, new Padding(0, 0, 0, 8));
+            AddActionControl(_errorReportButton, 0, 5, new Padding(0, 0, 0, 8));
+            AddActionControl(_startupCheckBox, 0, 6, new Padding(0));
         }
 
         _actionsLayout.ResumeLayout(true);
@@ -594,6 +608,38 @@ class HardwareDashboardForm : Form
 
             MessageBox.Show(
                 $"Não foi possível abrir a tela de sensores: {ex.Message}",
+                "Monitor Hardware",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+    }
+
+    private void OpenRawHardwareData()
+    {
+        try
+        {
+            if (_rawHardwareDataForm is { IsDisposed: false })
+            {
+                if (_rawHardwareDataForm.WindowState == FormWindowState.Minimized)
+                {
+                    _rawHardwareDataForm.WindowState = FormWindowState.Normal;
+                }
+
+                _rawHardwareDataForm.Show();
+                _rawHardwareDataForm.Activate();
+                return;
+            }
+
+            _rawHardwareDataForm = new RawHardwareDataForm(_hardwareMonitor, _hardwareSelectionService, _windowIcon);
+            _rawHardwareDataForm.FormClosed += (_, _) => _rawHardwareDataForm = null;
+            _rawHardwareDataForm.Show(this);
+        }
+        catch (Exception ex)
+        {
+            AppLogService.Error(ex, "Não foi possível abrir a tela de dados brutos.");
+
+            MessageBox.Show(
+                $"Não foi possível abrir a tela de dados brutos: {ex.Message}",
                 "Monitor Hardware",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
