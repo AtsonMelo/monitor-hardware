@@ -530,13 +530,9 @@ class HardwareDashboardForm : Form
         _actionsLayout.SuspendLayout();
         _actionsLayout.Controls.Clear();
 
-        _actionsLayout.Controls.Add(_updateButton);
         _actionsLayout.Controls.Add(_sensorsButton);
-        _actionsLayout.Controls.Add(_hardwareSelectionButton);
-        _actionsLayout.Controls.Add(_sensorOriginsButton);
-        _actionsLayout.Controls.Add(_diagnosticAiButton);
         _actionsLayout.Controls.Add(_stressTestButton);
-        _actionsLayout.Controls.Add(_errorReportButton);
+        _actionsLayout.Controls.Add(_updateButton);
         _actionsLayout.Controls.Add(_startupCheckBox);
 
         _actionsLayout.ResumeLayout(true);
@@ -1901,6 +1897,18 @@ class HardwareDashboardForm : Form
     {
         ContextMenuStrip menu = new ContextMenuStrip();
 
+        ToolStripMenuItem openSensorsItem = new ToolStripMenuItem("Conferir todos os sensores");
+        openSensorsItem.Click += (_, _) => OpenSensorsDetails();
+
+        ToolStripMenuItem openHardwareSelectionItem = new ToolStripMenuItem("Selecionar hardwares");
+        openHardwareSelectionItem.Click += (_, _) => OpenHardwareSelection();
+
+        ToolStripMenuItem openSensorOriginsItem = new ToolStripMenuItem("Origem dos sensores");
+        openSensorOriginsItem.Click += (_, _) => OpenSensorOrigins();
+
+        ToolStripMenuItem openDiagnosticAiItem = new ToolStripMenuItem("Diagnóstico por IA");
+        openDiagnosticAiItem.Click += (_, _) => OpenDiagnosticAi();
+
         ToolStripMenuItem openSupportItem = new ToolStripMenuItem("Abrir suporte no GitHub");
         openSupportItem.Click += (_, _) => OpenUrl("https://github.com/AtsonMelo/monitor-hardware/issues/new/choose");
 
@@ -1913,10 +1921,16 @@ class HardwareDashboardForm : Form
         ToolStripMenuItem createReportItem = new ToolStripMenuItem("Gerar relatório de erros");
         createReportItem.Click += (_, _) => GenerateAndOpenErrorReport();
 
-        menu.Items.Add(openSupportItem);
+        menu.Items.Add(openSensorsItem);
+        menu.Items.Add(openHardwareSelectionItem);
+        menu.Items.Add(openSensorOriginsItem);
+        menu.Items.Add(openDiagnosticAiItem);
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(createReportItem);
         menu.Items.Add(openLogItem);
         menu.Items.Add(openLogFolderItem);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(openSupportItem);
 
         return menu;
     }
@@ -2947,6 +2961,7 @@ class RollingHistory
         _values.Clear();
     }
 }
+
 
 
 
