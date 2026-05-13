@@ -335,7 +335,7 @@ class HardwareDashboardForm : Form
             Padding = new Padding(0)
         };
 
-        _helpButton = new Button { Text = "?" };
+        _helpButton = new Button { Text = "Menu" };
         ConfigureHelpButton(_helpButton);
         _helpButton.Click += (_, _) => ShowHelpMenu();
         _headerButtonsPanel.Controls.Add(_helpButton);
@@ -510,19 +510,19 @@ class HardwareDashboardForm : Form
     private static void ConfigureHelpButton(Button button)
     {
         button.AutoSize = false;
-        button.Size = new Size(30, 30);
-        button.MinimumSize = new Size(30, 30);
+        button.Size = new Size(86, 36);
+        button.MinimumSize = new Size(86, 36);
         button.FlatStyle = FlatStyle.Flat;
         button.ForeColor = Color.FromArgb(230, 233, 236);
         button.BackColor = Color.FromArgb(32, 37, 42);
         button.UseVisualStyleBackColor = false;
         button.TextAlign = ContentAlignment.MiddleCenter;
-        button.Font = new Font("Segoe UI", 10, FontStyle.Bold, GraphicsUnit.Point);
+        button.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold, GraphicsUnit.Point);
         button.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
         button.FlatAppearance.MouseOverBackColor = Color.FromArgb(44, 50, 57);
         button.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 34, 39);
-        button.Margin = new Padding(0);
-        button.Padding = new Padding(0);
+        button.Margin = new Padding(6, 0, 0, 0);
+        button.Padding = new Padding(8, 0, 8, 0);
     }
 
     private void ConfigureActionChips()
@@ -530,13 +530,9 @@ class HardwareDashboardForm : Form
         _actionsLayout.SuspendLayout();
         _actionsLayout.Controls.Clear();
 
-        _actionsLayout.Controls.Add(_updateButton);
         _actionsLayout.Controls.Add(_sensorsButton);
-        _actionsLayout.Controls.Add(_hardwareSelectionButton);
-        _actionsLayout.Controls.Add(_sensorOriginsButton);
-        _actionsLayout.Controls.Add(_diagnosticAiButton);
         _actionsLayout.Controls.Add(_stressTestButton);
-        _actionsLayout.Controls.Add(_errorReportButton);
+        _actionsLayout.Controls.Add(_updateButton);
         _actionsLayout.Controls.Add(_startupCheckBox);
 
         _actionsLayout.ResumeLayout(true);
@@ -1901,6 +1897,18 @@ class HardwareDashboardForm : Form
     {
         ContextMenuStrip menu = new ContextMenuStrip();
 
+        ToolStripMenuItem openSensorsItem = new ToolStripMenuItem("Conferir todos os sensores");
+        openSensorsItem.Click += (_, _) => OpenSensorsDetails();
+
+        ToolStripMenuItem openHardwareSelectionItem = new ToolStripMenuItem("Selecionar hardwares");
+        openHardwareSelectionItem.Click += (_, _) => OpenHardwareSelection();
+
+        ToolStripMenuItem openSensorOriginsItem = new ToolStripMenuItem("Origem dos sensores");
+        openSensorOriginsItem.Click += (_, _) => OpenSensorOrigins();
+
+        ToolStripMenuItem openDiagnosticAiItem = new ToolStripMenuItem("Diagnóstico por IA");
+        openDiagnosticAiItem.Click += (_, _) => OpenDiagnosticAi();
+
         ToolStripMenuItem openSupportItem = new ToolStripMenuItem("Abrir suporte no GitHub");
         openSupportItem.Click += (_, _) => OpenUrl("https://github.com/AtsonMelo/monitor-hardware/issues/new/choose");
 
@@ -1913,10 +1921,16 @@ class HardwareDashboardForm : Form
         ToolStripMenuItem createReportItem = new ToolStripMenuItem("Gerar relatório de erros");
         createReportItem.Click += (_, _) => GenerateAndOpenErrorReport();
 
-        menu.Items.Add(openSupportItem);
+        menu.Items.Add(openSensorsItem);
+        menu.Items.Add(openHardwareSelectionItem);
+        menu.Items.Add(openSensorOriginsItem);
+        menu.Items.Add(openDiagnosticAiItem);
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(createReportItem);
         menu.Items.Add(openLogItem);
         menu.Items.Add(openLogFolderItem);
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(openSupportItem);
 
         return menu;
     }
@@ -2947,6 +2961,8 @@ class RollingHistory
         _values.Clear();
     }
 }
+
+
 
 
 
