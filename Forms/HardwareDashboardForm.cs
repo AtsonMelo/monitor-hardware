@@ -11,8 +11,8 @@ using LibreHardwareMonitor.Hardware;
 
 internal static class DashboardLayoutMetrics
 {
-    public const int CardNormalHeight = 128;
-    public const int CardCompactHeight = 112;
+    public const int CardNormalHeight = 118;
+    public const int CardCompactHeight = 104;
     public const int BottomPanelHeight = 144;
     public const int BottomPanelCompactHeight = 108;
     public const int StatusBarHeight = 32;
@@ -394,7 +394,7 @@ class HardwareDashboardForm : Form
             BackColor = BackColor,
             TextAlign = ContentAlignment.MiddleLeft,
             UseVisualStyleBackColor = false,
-            Margin = new Padding(4, 1, 6, 1)
+            Margin = new Padding(4, 0, 6, 0)
         };
         _startupCheckBox.CheckedChanged += StartupCheckBoxCheckedChanged;
 
@@ -409,7 +409,7 @@ class HardwareDashboardForm : Form
             GrowStyle = TableLayoutPanelGrowStyle.FixedSize,
             Padding = new Padding(0),
             BackColor = BackColor,
-            Margin = new Padding(0, 0, 0, 4)
+            Margin = new Padding(0, 0, 0, 2)
         };
         _cardsGrid.SizeChanged += (_, _) => ApplyCardsGridLayout();
 
@@ -492,7 +492,7 @@ class HardwareDashboardForm : Form
         button.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
         button.FlatAppearance.MouseOverBackColor = Color.FromArgb(44, 50, 57);
         button.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 34, 39);
-        button.Margin = new Padding(0, 0, 6, 4);
+        button.Margin = new Padding(0, 0, 6, 2);
     }
 
     private static void ConfigurePrimaryActionButton(Button button)
@@ -2961,6 +2961,7 @@ class RollingHistory
         _values.Clear();
     }
 }
+
 
 
 
