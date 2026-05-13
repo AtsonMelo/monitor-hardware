@@ -27,7 +27,7 @@ class HardwareDashboardForm : Form
     private const int CardsSingleColumnBreakpoint = 640;
     private const int CardsThreeColumnBreakpoint = 980;
     private const int CardsFiveColumnBreakpoint = 1320;
-    private const int MainStackBreakpoint = 1220;
+    private const int MainStackBreakpoint = 1040;
     private const int BottomStackBreakpoint = 820;
     private const int BottomHideBreakpointHeight = 780;
 
@@ -711,7 +711,7 @@ class HardwareDashboardForm : Form
             : new Padding(0, 0, 8, 0);
         _sensorSidebarPanel.MinimumSize = stackMain
             ? new Size(0, 0)
-            : new Size(260, 0);
+            : new Size(240, 0);
 
         if (_mainLayout.Controls.Count > 0 &&
             _mainLayout.ColumnCount == (stackMain ? 1 : 2))
@@ -826,7 +826,7 @@ class HardwareDashboardForm : Form
             ColumnCount = 1,
             RowCount = 3,
             BackColor = Color.FromArgb(21, 24, 28),
-            Padding = new Padding(10),
+            Padding = new Padding(8),
             MinimumSize = new Size(0, 240),
             Margin = new Padding(0, 0, 8, 0)
         };
@@ -853,7 +853,7 @@ class HardwareDashboardForm : Form
             ForeColor = Color.FromArgb(170, 176, 184),
             Font = new Font("Segoe UI", 9.25f, FontStyle.Regular, GraphicsUnit.Point),
             AutoEllipsis = true,
-            Margin = new Padding(0, 0, 0, 8)
+            Margin = new Padding(0, 0, 0, 6)
         };
 
         _scopePanel = new DashboardScopePanel
@@ -878,8 +878,8 @@ class HardwareDashboardForm : Form
             WrapContents = false,
             AutoScroll = true,
             BackColor = Color.FromArgb(21, 24, 28),
-            Padding = new Padding(10),
-            MinimumSize = new Size(260, 0),
+            Padding = new Padding(8),
+            MinimumSize = new Size(240, 0),
             Margin = new Padding(0, 0, 0, 0)
         };
         _sensorSidebarPanel = panel;
@@ -891,7 +891,7 @@ class HardwareDashboardForm : Form
             Height = 24,
             ForeColor = Color.White,
             Font = new Font("Segoe UI", 12.5f, FontStyle.Bold, GraphicsUnit.Point),
-            Margin = new Padding(0, 0, 0, 8)
+            Margin = new Padding(0, 0, 0, 6)
         };
         panel.Controls.Add(_sidebarTitleLabel);
 
@@ -982,7 +982,7 @@ class HardwareDashboardForm : Form
             Height = 24,
             ForeColor = Color.White,
             Font = new Font("Segoe UI", 11.5f, FontStyle.Bold, GraphicsUnit.Point),
-            Margin = new Padding(0, 0, 0, 8),
+            Margin = new Padding(0, 0, 0, 6),
             AutoEllipsis = true
         };
     }
@@ -1010,7 +1010,7 @@ class HardwareDashboardForm : Form
         SensorSummaryRow row = new SensorSummaryRow(title, value, subtitle, iconKind)
         {
             Dock = DockStyle.Top,
-            Margin = new Padding(0, 0, 0, 8)
+            Margin = new Padding(0, 0, 0, 6)
         };
 
         row.Clicked += (_, _) =>
@@ -2539,7 +2539,7 @@ class SensorSummaryRow : Panel
 
     public SensorSummaryRow(string title, string value, string subtitle, MetricIconKind iconKind)
     {
-        Height = 64;
+        Height = 58;
         BackColor = RowBackground;
         BorderStyle = BorderStyle.FixedSingle;
         Cursor = Cursors.Hand;
@@ -2592,12 +2592,12 @@ class SensorSummaryRow : Panel
         FlowLayoutPanel iconColumn = new FlowLayoutPanel
         {
             Dock = DockStyle.Left,
-            Width = 48,
+            Width = 44,
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
             BackColor = RowBackground,
             Margin = new Padding(0),
-            Padding = new Padding(4, 14, 0, 0)
+            Padding = new Padding(4, 11, 0, 0)
         };
         iconColumn.Controls.Add(_indicator);
         iconColumn.Controls.Add(_iconBadge);
@@ -2607,7 +2607,7 @@ class SensorSummaryRow : Panel
             Dock = DockStyle.Fill,
             BackColor = RowBackground,
             Margin = new Padding(0),
-            Padding = new Padding(0, 8, 0, 0)
+            Padding = new Padding(0, 6, 0, 0)
         };
         textColumn.Controls.Add(_subtitleLabel);
         textColumn.Controls.Add(_valueLabel);
@@ -2961,6 +2961,7 @@ class RollingHistory
         _values.Clear();
     }
 }
+
 
 
 
