@@ -335,7 +335,7 @@ class HardwareDashboardForm : Form
             Padding = new Padding(0)
         };
 
-        _helpButton = new Button { Text = "?" };
+        _helpButton = new Button { Text = "Menu" };
         ConfigureHelpButton(_helpButton);
         _helpButton.Click += (_, _) => ShowHelpMenu();
         _headerButtonsPanel.Controls.Add(_helpButton);
@@ -510,19 +510,19 @@ class HardwareDashboardForm : Form
     private static void ConfigureHelpButton(Button button)
     {
         button.AutoSize = false;
-        button.Size = new Size(30, 30);
-        button.MinimumSize = new Size(30, 30);
+        button.Size = new Size(86, 36);
+        button.MinimumSize = new Size(86, 36);
         button.FlatStyle = FlatStyle.Flat;
         button.ForeColor = Color.FromArgb(230, 233, 236);
         button.BackColor = Color.FromArgb(32, 37, 42);
         button.UseVisualStyleBackColor = false;
         button.TextAlign = ContentAlignment.MiddleCenter;
-        button.Font = new Font("Segoe UI", 10, FontStyle.Bold, GraphicsUnit.Point);
+        button.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold, GraphicsUnit.Point);
         button.FlatAppearance.BorderColor = Color.FromArgb(58, 66, 74);
         button.FlatAppearance.MouseOverBackColor = Color.FromArgb(44, 50, 57);
         button.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 34, 39);
-        button.Margin = new Padding(0);
-        button.Padding = new Padding(0);
+        button.Margin = new Padding(6, 0, 0, 0);
+        button.Padding = new Padding(8, 0, 8, 0);
     }
 
     private void ConfigureActionChips()
@@ -2961,6 +2961,7 @@ class RollingHistory
         _values.Clear();
     }
 }
+
 
 
 
