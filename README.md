@@ -1,103 +1,263 @@
 # Monitor Hardware
 
-Monitor de hardware para Windows feito em C#/.NET 8, usando LibreHardwareMonitorLib.
+## What It Does
 
-**Versão atual:** `0.7.2`
+Real-time hardware monitoring application for Windows, built in C#/.NET 8. Reads live sensor data (CPU, GPU, RAM, temperature, fans, voltages) and provides a professional dashboard interface, system tray monitoring, CSV logging, and HTML reporting for technical diagnostics and system analysis.
 
-O app lê sensores reais do computador e mostra informações de CPU, GPU, RAM, SSD, fans, voltagens, rede, alertas, logs, relatório técnico, interface gráfica, ícone na bandeja do Windows, dashboard visual e ferramentas auxiliares de diagnóstico.
-
----
-
-## Download
-
-Baixe a versão mais recente em:
-
-https://github.com/AtsonMelo/monitor-hardware/releases/latest
-
-Ou baixe pelo PowerShell:
-
-    $repo = "AtsonMelo/monitor-hardware"
-    $release = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest"
-    $asset = $release.assets | Where-Object { $_.name -like "*win-x64.zip" } | Select-Object -First 1
-
-    $version = $release.tag_name.TrimStart("v")
-    $basePath = "$env:LOCALAPPDATA\MonitorHardware"
-    $installPath = "$basePath\installed\$version"
-    $appPath = "$installPath\app"
-    $zipPath = Join-Path $installPath $asset.name
-
-    New-Item -ItemType Directory -Path $installPath -Force | Out-Null
-
-    Invoke-WebRequest $asset.browser_download_url -OutFile $zipPath
-    Unblock-File $zipPath
-    Expand-Archive $zipPath -DestinationPath $appPath -Force
-
-    Start-Process (Join-Path $appPath "monitor-hardware.exe") -ArgumentList "--gui"
-
-Se já existir uma versão aberta, feche o app pelo menu **Sair** no ícone da bandeja antes de extrair uma nova versão.
+**Current Version:** 0.7.2
 
 ---
 
-## Destaques da v0.7.2
+## Why It Exists
 
-- Implementa suporte ao comando `--version`.
-- Melhora o fluxo de atualização automática.
-- Após baixar e extrair uma atualização, o app tenta abrir automaticamente o executável atualizado.
-- Exibe mensagem informando onde a nova versão foi baixada.
-- Atualiza a versão interna do projeto para `0.7.2`.
-- Corrige o comportamento em que o botão **Verificar atualizações** baixava a release, mas fechava o app sem explicar claramente o próximo passo.
+Understanding your hardware's behavior is essential for:
+- Diagnosing performance issues
+- Monitoring system health
+- Detecting thermal problems
+- Validating hardware configuration
+- Learning Windows Internals and sensor APIs
 
----
-
-## Destaques da v0.7.1
-
-- Refinamento visual do dashboard principal.
-- Cards superiores para CPU, temperatura, ventoinha, voltagem e diagnóstico.
-- Botão **Osciloscópio** destacado na tela principal.
-- Melhorias no Scope/Osciloscópio virtual.
-- Ajustes nas telas de sensores e dados brutos.
-- Estrutura inicial para teste de estresse.
-- Guia de ferramentas dev em `docs/ferramentas-dev.md`.
-- Diagnóstico por IA mantido como estrutura futura.
+This project combines practical monitoring needs with software engineering best practices: testing, CI/CD, GitHub workflows, and real-world troubleshooting.
 
 ---
 
-## Funcionalidades
+## Features
 
-- Interface gráfica em Windows Forms.
-- Dashboard técnico com cards principais.
-- Leitura de sensores reais via LibreHardwareMonitorLib.
-- Cards de CPU, GPU, RAM, SSD, fans, temperatura, voltagem e diagnóstico.
-- Gráfico principal com tendência do sensor selecionado.
-- Mini gráficos nos cards.
-- Painel de sensores principais.
-- Tela de dados brutos do hardware.
-- Inspetor de bits para análise didática de valores `float32`.
-- Scope/Osciloscópio virtual.
-- Estrutura inicial para teste de estresse por hardware.
-- Diagnóstico por IA preparado como recurso futuro.
-- Ícone na bandeja com temperatura em tempo real.
-- Logs CSV automáticos.
-- Relatório HTML histórico.
-- Relatório técnico de sensores.
-- Verificação, download e aplicação de atualizações via GitHub Releases.
-- Opção de iniciar com o Windows.
-- Suporte a limites configuráveis em `config.json`.
+- ✓ **Real-time Monitoring:** Live sensor data for CPU, GPU, RAM, SSD, fans
+- ✓ **Dashboard Interface:** Professional cards and graphs showing key metrics
+- ✓ **System Tray:** Real-time temperature display in Windows system tray
+- ✓ **Logging:** Automatic CSV logging of sensor data
+- ✓ **Reports:** HTML reports and technical diagnostics
+- ✓ **Virtual Oscilloscope:** Graph visualization and analysis
+- ✓ **Auto-Update:** Download and install updates from GitHub Releases
+- ✓ **Configurable:** JSON configuration for temperature limits and monitoring behavior
+- ✓ **Multiple Modes:** GUI, tray, diagnostics, reporting, console output
 
 ---
 
-## Modos principais
+## Tech Stack
 
-    dotnet run
-    dotnet run -- --gui
-    dotnet run -- --tray
-    dotnet run -- --diagnostico
-    dotnet run -- --relatorio
-    dotnet run -- --relatorio-tecnico
-    dotnet run -- --version
-    dotnet run -- --mode resumo
-    dotnet run -- --mode detalhado
-    dotnet run -- --mode somente-log
+- **Language:** C#
+- **Framework:** .NET 8
+- **UI:** Windows Forms
+- **Hardware Library:** LibreHardwareMonitorLib
+- **Testing:** xUnit
+- **CI/CD:** GitHub Actions
+- **Distribution:** GitHub Releases
+- **Platform:** Windows 10+
+
+---
+
+## Project Status
+
+**Status:** Active Development  
+**Version:** 0.7.2  
+**Phase:** Feature-complete for current scope  
+**Last Updated:** May 2026
+
+This is a mature portfolio project demonstrating professional development practices.
+
+---
+
+## Installation & Usage
+
+### Download
+
+Latest release: [GitHub Releases](https://github.com/AtsonMelo/monitor-hardware/releases/latest)
+
+### PowerShell Auto-Install
+
+```powershell
+$repo = "AtsonMelo/monitor-hardware"
+$release = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest"
+$asset = $release.assets | Where-Object { $_.name -like "*win-x64.zip" } | Select-Object -First 1
+
+$version = $release.tag_name.TrimStart("v")
+$basePath = "$env:LOCALAPPDATA\MonitorHardware"
+$installPath = "$basePath\installed\$version"
+$appPath = "$installPath\app"
+$zipPath = Join-Path $installPath $asset.name
+
+New-Item -ItemType Directory -Path $installPath -Force | Out-Null
+Invoke-WebRequest $asset.browser_download_url -OutFile $zipPath
+Unblock-File $zipPath
+Expand-Archive $zipPath -DestinationPath $appPath -Force
+
+Start-Process (Join-Path $appPath "monitor-hardware.exe") -ArgumentList "--gui"
+```
+
+### Development
+
+```bash
+# Clone
+git clone https://github.com/AtsonMelo/monitor-hardware.git
+cd monitor-hardware
+
+# Build
+dotnet restore
+dotnet build
+
+# Test
+dotnet test
+
+# Run
+dotnet run -- --gui                    # GUI dashboard
+dotnet run -- --tray                   # System tray only
+dotnet run -- --diagnostico            # List all sensors
+dotnet run -- --relatorio              # Generate HTML report
+dotnet run -- --relatorio-tecnico      # Generate technical report
+dotnet run -- --version                # Show version
+dotnet run -- --mode resumo             # Console mode: summary
+dotnet run -- --mode detalhado          # Console mode: detailed
+dotnet run -- --mode somente-log        # Console mode: logging only
+```
+
+---
+
+## Configuration
+
+Edit `config.json` to customize:
+
+```json
+{
+  "CpuTempMax": 80,                    # CPU temperature limit (°C)
+  "GpuTempMax": 80,                    # GPU temperature limit (°C)
+  "SsdTempMax": 60,                    # SSD temperature limit (°C)
+  "IntervaloMs": 2000,                 # Refresh interval (ms)
+  "EnableCsv": true,                   # Enable CSV logging
+  "EnableConsole": true,               # Enable console output
+  "Mode": "resumo",                    # Default mode
+  "CpuFanSensorName": "Fan #2",       # Primary fan sensor name
+  "TemperatureUnit": "C",              # Temperature unit (C/F)
+  "ShowTemperatureUnitInTrayIcon": false,
+  "EnableAutoUpdateCheck": true        # Check GitHub for updates
+}
+```
+
+### Paths Used
+
+```
+%LOCALAPPDATA%\MonitorHardware\
+├── installed\<version>\app\          # Application files
+├── updates\                          # Downloaded updates
+└── logs\
+    └── app.log                       # Main log file
+```
+
+View logs:
+```powershell
+notepad "$env:LOCALAPPDATA\MonitorHardware\logs\app.log"
+```
+
+---
+
+## Features & Roadmap
+
+### Current Release (v0.7.2)
+
+- [x] Real-time hardware monitoring via LibreHardwareMonitorLib
+- [x] Dashboard interface with cards for CPU, GPU, RAM, SSD, fans, voltage
+- [x] System tray integration with live temperature display
+- [x] CSV logging for historical analysis
+- [x] HTML and technical report generation
+- [x] Virtual oscilloscope for trend analysis
+- [x] Automatic update checking and installation
+- [x] Multiple operation modes (GUI, tray, diagnostics, console)
+- [x] Configurable temperature limits
+- [x] Auto-start with Windows option
+
+### Planned Improvements
+
+- [ ] Enhanced AI diagnostics (future roadmap)
+- [ ] Network monitoring integration
+- [ ] Historical data analysis dashboard
+- [ ] Hardware health predictions
+- [ ] Stress test utilities
+- [ ] Additional sensor support
+- [ ] Performance optimization
+
+---
+
+## Security & Privacy
+
+⚠️ **Important:**
+- This tool reads **local** sensor data only
+- No data is sent externally (unless you manually share reports)
+- No credentials or authentication is handled
+- No personal information is collected
+- Safe to use in any Windows environment
+- Keep config.json secure if storing in shared environments
+- Do not commit real config files with sensitive paths or custom settings
+
+The project includes `.gitignore` rules for logs and temporary files.
+
+---
+
+## Project Architecture
+
+### Learning Goals
+
+This project is a practical study of:
+- **Windows Internals:** Hardware monitoring APIs
+- **Sensor Reading:** LibreHardwareMonitorLib integration
+- **GUI Development:** Windows Forms and responsive design
+- **Data Visualization:** Charts and real-time graphs
+- **System Monitoring:** Logging and reporting
+- **Software Distribution:** GitHub Releases and auto-update
+- **Professional Workflows:** Git, GitHub, CI/CD, testing
+
+### Structure
+
+```
+monitor-hardware/
+├── src/                              # Main application
+│   ├── Forms/                        # WinForms UI components
+│   ├── Models/                       # Data models
+│   ├── Services/                     # Business logic
+│   ├── Program.cs                    # Entry point
+│   └── app.manifest                  # Admin privileges
+├── monitor-hardware.Tests/           # Unit tests (xUnit)
+├── scripts/                          # Helper and deployment scripts
+├── docs/                             # Technical documentation
+├── config.json                       # Configuration file
+├── monitor-hardware.csproj           # Project file
+├── monitor-hardware.sln              # Solution file
+└── README.md                         # This file
+```
+
+---
+
+## Contributing
+
+This is a personal portfolio project. For improvements or suggestions:
+
+1. Open an issue for feature requests or bug reports
+2. Feel free to fork and experiment
+3. Submit PRs for improvements or documentation
+
+---
+
+## License
+
+**License:** Pending decision  
+Currently no explicit license. If you plan to use or modify this code, ask for clarification on licensing terms.
+
+---
+
+## Author
+
+**Atson Melo**  
+Focus: Automation, hardware diagnostics, C#/.NET, PowerShell, Python  
+Learning: Windows Internals, systems programming, professional workflows  
+GitHub: [@AtsonMelo](https://github.com/AtsonMelo)
+
+---
+
+## Related Projects
+
+- [atson-powershell-toolkit](https://github.com/AtsonMelo/atson-powershell-toolkit) – PowerShell automation
+- [monitor-com](https://github.com/AtsonMelo/monitor-com) – Serial communication monitoring
+- [testador-neon-hio115](https://github.com/AtsonMelo/testador-neon-hio115) – Industrial CLP testing
 
 Resumo:
 
