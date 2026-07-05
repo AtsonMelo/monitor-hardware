@@ -178,7 +178,13 @@ notepad "$env:LOCALAPPDATA\MonitorHardware\logs\app.log"
 
 ---
 
-## Security & Privacy
+## Security and privacy
+
+- No real credentials, tokens, client data or production environment details should be committed.
+- Examples use placeholders or simulated data.
+- Sensitive values must stay in local environment variables or ignored files.
+
+### Additional repository notes
 
 ⚠️ **Important:**
 - This tool reads **local** sensor data only
@@ -239,8 +245,7 @@ This is a personal portfolio project. For improvements or suggestions:
 
 ## License
 
-**License:** Pending decision  
-Currently no explicit license. If you plan to use or modify this code, ask for clarification on licensing terms.
+License: pending decision.
 
 ---
 

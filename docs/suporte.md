@@ -47,7 +47,7 @@ Ao abrir um chamado, informe:
 Antes de colar logs publicamente, revise se existe algum dado pessoal, como nome de usuário em caminhos de pasta. Se quiser, substitua por algo como:
 
 ```text
-C:\Users\SEU_USUARIO\...
+C:\Users\<usuario>\...
 ```
 
 Não envie senhas, tokens, documentos pessoais ou informações privadas.
