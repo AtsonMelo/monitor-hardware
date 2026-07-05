@@ -7,7 +7,7 @@ Use como manual rápido para rodar, testar, versionar, abrir PRs e acompanhar ch
 ## Acessar o projeto
 
 ```powershell
-cd C:\Users\atson\Documents\estudo-windows-internals\monitor-hardware
+cd $env:USERPROFILE\Documents\estudo-windows-internals\monitor-hardware
 ```
 
 Abrir o projeto inteiro no VS Code:
